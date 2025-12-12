@@ -4,6 +4,7 @@ import { toPng } from "html-to-image";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useLinkPreview } from "@/hooks/useLinkPreview";
 import { LoadingCard } from "@/components/ui/loading";
+import CardDesign from "./CardDesign";
 
 interface LinkPreviewProps {
   url: string;
