@@ -52,43 +52,7 @@ GET /api/link-preview?url=https://example.com
 }
 ```
 
-### POST `/api/link-preview`
 
-Extract metadata from a URL using request body.
-
-**Request Body:**
-```json
-{
-  "url": "https://example.com"
-}
-```
-
-**Example Success Response:**
-```json
-{
-  "success": true,
-  "url": "https://example.com",
-  "metadata": {
-    "title": "Example Domain",
-    "description": "This domain is for use in illustrative examples",
-    "image": "https://example.com/image.jpg",
-    "favicon": "https://example.com/favicon.ico",
-    "url": "https://example.com"
-  },
-  "timestamp": "2025-12-10T10:20:31.524Z"
-}
-```
-
-**Example Error Response:**
-```json
-{
-  "success": false,
-  "url": "https://example.com",
-  "metadata": null,
-  "error": "Unable to extract page metadata",
-  "timestamp": "2025-12-10T10:20:31.524Z"
-}
-```
 
 ## Response Format
 

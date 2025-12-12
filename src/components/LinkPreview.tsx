@@ -2,57 +2,28 @@
 
 import { toPng } from "html-to-image";
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import CardDesign from "./CardDesign";
+import { useLinkPreview } from "@/hooks/useLinkPreview";
+import { LoadingCard } from "@/components/ui/loading";
 
 interface LinkPreviewProps {
   url: string;
 }
 
-interface PreviewData {
-  title: string;
-  description: string;
-  image: string;
-  favicon: string;
-  url: string;
-}
-
 const LinkPreview: React.FC<LinkPreviewProps> = ({ url }) => {
-  console.log(url);
-  const [data, setData] = useState<PreviewData | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
+  const { data, loading, error, refetch } = useLinkPreview(url);
   const cardRef = useRef<HTMLDivElement>(null);
 
   // Editable state
   const [editableTitle, setEditableTitle] = useState("");
   const [editableDescription, setEditableDescription] = useState("");
 
+  // Update editable state when data changes
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        const response = await fetch(`/api/link-preview?url=${encodeURIComponent(url)}`);
-        console.log(response);
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || "Failed to fetch preview data");
-        }
-        const result = await response.json();
-        setData(result);
-        // Initialize editable state
-        setEditableTitle(result.title || "");
-        setEditableDescription(result.description || "");
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "An error occurred");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (url) {
-      fetchData();
+    if (data) {
+      setEditableTitle(data.title || "");
+      setEditableDescription(data.description || "");
     }
-  }, [url]);
+  }, [data]);
 
   const handleDownload = useCallback(async () => {
     if (cardRef.current === null) {
@@ -79,24 +50,29 @@ const LinkPreview: React.FC<LinkPreviewProps> = ({ url }) => {
   }, [cardRef]);
 
   if (loading) {
-    return (
-      <div className="w-full max-w-md mx-auto bg-white rounded-xl shadow-md overflow-hidden p-6 animate-pulse">
-        <div className="h-4 bg-gray-200 rounded w-3/4 mb-4"></div>
-        <div className="h-48 bg-gray-200 rounded mb-4"></div>
-        <div className="h-4 bg-gray-200 rounded w-full mb-2"></div>
-        <div className="h-4 bg-gray-200 rounded w-5/6"></div>
-      </div>
-    );
+    return <LoadingCard />;
   }
 
   if (error) {
     return (
-      <div
-        className="w-full max-w-md mx-auto bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded relative"
-        role="alert"
-      >
-        <strong className="font-bold">Error: </strong>
-        <span className="block sm:inline">{error}</span>
+      <div className="w-full max-w-md mx-auto">
+        <div
+          className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg"
+          role="alert"
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <strong className="font-bold">Error: </strong>
+              <span className="block sm:inline">{error}</span>
+            </div>
+            <button
+              onClick={refetch}
+              className="ml-4 px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700 transition-colors"
+            >
+              Retry
+            </button>
+          </div>
+        </div>
       </div>
     );
   }

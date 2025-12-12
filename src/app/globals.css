@@ -121,3 +121,49 @@
     @apply bg-background text-foreground;
   }
 }
+@layer utilities {
+  .font-noto-serif-bengali {
+    font-family: var(--font-noto-serif-bengali), Arial, sans-serif;
+  }
+}
+
+/* Ensure Bengali font is properly loaded for canvas */
+@font-face {
+  font-family: 'Noto Serif Bengali';
+  font-display: swap;
+  src: local('Noto Serif Bengali'), local('NotoSerifBengali');
+}
+/* Glassmorphic animations */
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-20px); }
+}
+
+.animation-delay-2000 {
+  animation-delay: 2s;
+}
+
+.animation-delay-4000 {
+  animation-delay: 4s;
+}
+
+/* Custom glassmorphic backdrop blur */
+.glass-panel {
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+}
+
+/* Smooth transitions for all glassmorphic elements */
+.glass-transition {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Hover effects for glassmorphic buttons */
+.glass-button:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: translateY(-2px);
+  box-shadow: 0 12px 40px 0 rgba(31, 38, 135, 0.5);
+}

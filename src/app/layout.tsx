@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Tiro_Bangla } from "next/font/google";
+import { Geist, Geist_Mono, Noto_Serif_Bengali } from "next/font/google";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -12,11 +12,10 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-const tiroBangla = Tiro_Bangla({
-  variable: "--font-tiro-bangla",
+const notoSerifBengali = Noto_Serif_Bengali({
+  variable: "--noto-serif-bengali",
   subsets: ["bengali"],
-  weight: ["400"],
-  style: ["normal"],
+  weight: ["500"],
 });
 
 export const metadata: Metadata = {
@@ -26,13 +25,13 @@ export const metadata: Metadata = {
 
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
+}) {
   return (
     <html lang="en">
       <body
-        className={`${tiroBangla.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} ${notoSerifBengali.variable} antialiased`}
       >
         {children}
       </body>
