@@ -22,12 +22,7 @@ export default function Home() {
 
       <div className="w-full flex flex-col items-center gap-8">
         <div className="relative flex place-items-center w-full max-w-4xl">
-          {/* The SimpleTestMap component is rendered here. 
-              Consider renaming it to something more descriptive like 'BangladeshMap' or 'DeliveryHeatMap' if it represents the core feature. */}
-          {/* <DistrictMap width={1200} height={1350} className="w-full h-auto" /> */}
-          {/* <DeliveryHeatmap /> */}
-          {/* <SimpleTestMap /> */}
-          {/* <BangladeshHeatmap /> */}
+        
         </div>
 
         <div className="w-full max-w-md flex gap-2">
