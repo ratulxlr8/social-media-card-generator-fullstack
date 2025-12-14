@@ -2,6 +2,10 @@ import { NextResponse } from 'next/server';
 import { LinkPreviewService } from '@/services/linkPreviewService';
 import { getErrorMessage } from '@/lib/errors';
 
+function parseBoolean(value: string | null): boolean {
+  return value === '1' || value === 'true';
+}
+
 export async function GET(request: Request) {
   const timestamp = new Date().toISOString();
   let url = '';
@@ -9,6 +13,9 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const rawUrl = searchParams.get('url');
+    const fetchBodyImages = parseBoolean(
+      searchParams.get('fetchBodyImages')
+    );
 
     if (!rawUrl) {
       return NextResponse.json(
@@ -40,7 +47,9 @@ export async function GET(request: Request) {
     }
 
     // Get preview data using service
-    const metadata = await LinkPreviewService.getPreviewData(rawUrl);
+    const metadata = await LinkPreviewService.getPreviewData(rawUrl,
+      { fetchBodyImages }
+    );
 
     return NextResponse.json({
       success: true,
@@ -50,7 +59,10 @@ export async function GET(request: Request) {
         description: metadata.description,
         image: metadata.image,
         favicon: metadata.favicon,
-        url: metadata.url
+        url: metadata.url,
+        ...(fetchBodyImages && metadata.bodyImages
+          ? { bodyImages: metadata.bodyImages }
+          : {})
       },
       timestamp
     });

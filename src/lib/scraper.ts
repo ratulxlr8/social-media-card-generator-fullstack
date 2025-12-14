@@ -4,6 +4,7 @@ export interface MetaData {
   image: string;
   favicon: string;
   url: string;
+  bodyImages?: string[];
 }
 
 export interface ScrapedData {
@@ -13,6 +14,11 @@ export interface ScrapedData {
   ogDescription?: string;
   ogImage?: string;
   favicon?: string;
+  bodyImages?: string[];
+}
+
+export interface ScrapingOptions {
+  fetchBodyImages?: boolean;
 }
 
 import { SCRAPER_CONFIG } from '@/config/scraper';
@@ -135,6 +141,116 @@ export function parseMetadata(headHtml: string): ScrapedData {
 }
 
 /**
+ * Streams HTML content starting from <body> to extract images
+ * Only fetches if fetchBodyImages option is enabled
+ */
+export async function fetchBodyImages(url: string): Promise<string[]> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), SCRAPER_CONFIG.TIMEOUT);
+
+  try {
+    const response = await fetch(url, {
+      signal: controller.signal,
+      headers: {
+        'User-Agent': SCRAPER_CONFIG.USER_AGENT,
+        ...SCRAPER_CONFIG.HEADERS,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    if (!response.body) {
+      throw new Error('No response body available');
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let collected = '';
+    let bodyStartFound = false;
+    let imageCount = 0;
+
+    try {
+      while (imageCount < SCRAPER_CONFIG.MAX_BODY_IMAGES) {
+        const { done, value } = await reader.read();
+        
+        if (done) break;
+        
+        const chunk = decoder.decode(value, { stream: true });
+        collected += chunk;
+        
+        // Start collecting after <body> tag
+        if (!bodyStartFound && collected.includes('<body')) {
+          const bodyStartIndex = collected.indexOf('<body');
+          collected = collected.substring(bodyStartIndex);
+          bodyStartFound = true;
+        }
+        
+        // If we haven't found body yet, continue
+        if (!bodyStartFound) {
+          // Keep only recent content to avoid memory issues
+          if (collected.length > SCRAPER_CONFIG.MAX_HEAD_SIZE) {
+            collected = collected.slice(-SCRAPER_CONFIG.MAX_HEAD_SIZE / 2);
+          }
+          continue;
+        }
+        
+        // Count images found so far
+        const imgMatches = collected.match(/<img[^>]+>/gi) || [];
+        imageCount = imgMatches.length;
+        
+        // Stop if we have enough images or too much content
+        if (imageCount >= SCRAPER_CONFIG.MAX_BODY_IMAGES || 
+            collected.length > SCRAPER_CONFIG.MAX_BODY_SIZE) {
+          break;
+        }
+      }
+    } finally {
+      reader.releaseLock();
+    }
+
+    // Extract and filter images
+    return extractBodyImages(collected, url);
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+/**
+ * Extracts image URLs from body HTML content
+ */
+function extractBodyImages(bodyHtml: string, baseUrl: string): string[] {
+  const imgRegex = /<img[^>]+src=["']([^"']+)["'][^>]*>/gi;
+  const images: string[] = [];
+  let match;
+
+  while ((match = imgRegex.exec(bodyHtml)) !== null && images.length < SCRAPER_CONFIG.MAX_BODY_IMAGES) {
+    const src = match[1].trim();
+    
+    // Skip if matches ignored patterns
+    if (SCRAPER_CONFIG.IGNORED_IMAGE_PATTERNS.some(pattern => pattern.test(src))) {
+      continue;
+    }
+    
+    // Resolve relative URLs
+    try {
+      const resolvedUrl = new URL(src, baseUrl).toString();
+      
+      // Avoid duplicates
+      if (!images.includes(resolvedUrl)) {
+        images.push(resolvedUrl);
+      }
+    } catch {
+      // Skip invalid URLs
+      continue;
+    }
+  }
+
+  return images;
+}
+
+/**
  * Normalizes and prioritizes metadata for frontend consumption
  */
 export function normalizeMetadata(scraped: ScrapedData, originalUrl: string): MetaData {
@@ -155,11 +271,18 @@ export function normalizeMetadata(scraped: ScrapedData, originalUrl: string): Me
   const image = resolveUrl(scraped.ogImage);
   const favicon = resolveUrl(scraped.favicon) || resolveUrl('/favicon.ico');
 
-  return {
+  const result: MetaData = {
     title,
     description,
     image,
     favicon,
     url: originalUrl,
   };
+
+  // Include body images if they exist
+  if (scraped.bodyImages && scraped.bodyImages.length > 0) {
+    result.bodyImages = scraped.bodyImages;
+  }
+
+  return result;
 }

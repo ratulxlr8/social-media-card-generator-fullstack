@@ -5,6 +5,11 @@ export const SCRAPER_CONFIG = {
   // Maximum head content size to prevent memory issues
   MAX_HEAD_SIZE: 100000,
   
+  // Body image fetching limits
+  MAX_BODY_SIZE: 500000, // 500KB max for body content
+  MAX_BODY_IMAGES: 10,   // Maximum number of images to extract
+  MIN_IMAGE_SIZE: 100,   // Minimum image dimension (width or height)
+  
   // User agent for requests
   USER_AGENT: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
   
@@ -30,4 +35,12 @@ export const SCRAPER_CONFIG = {
   
   // Allowed protocols
   ALLOWED_PROTOCOLS: ['http:', 'https:'],
+  
+  // Image filtering patterns
+  IGNORED_IMAGE_PATTERNS: [
+    /^data:/, // base64 images
+    /\.svg$/i, // SVG files
+    /tracking|analytics|pixel|beacon/i, // tracking pixels
+    /favicon|icon/i, // favicons
+  ],
 } as const;

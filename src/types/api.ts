@@ -1,5 +1,6 @@
 export interface LinkPreviewRequest {
   url: string;
+  fetchBodyImages?: boolean;
 }
 
 export interface LinkPreviewMetadata {
@@ -8,6 +9,8 @@ export interface LinkPreviewMetadata {
   image: string;
   favicon: string;
   url: string;
+    // Optional – only present if requested
+  bodyImages?: string[];
 }
 
 export interface LinkPreviewSuccessResponse {

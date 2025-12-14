@@ -1,4 +1,4 @@
-import { fetchHeadContent, parseMetadata, normalizeMetadata, type MetaData } from '@/lib/scraper';
+import { fetchHeadContent, fetchBodyImages, parseMetadata, normalizeMetadata, type MetaData, type ScrapingOptions } from '@/lib/scraper';
 import { validateAndSanitizeUrl } from '@/lib/validators';
 import { ScrapingError } from '@/lib/errors';
 import { SCRAPER_CONFIG } from '@/config/scraper';
@@ -7,7 +7,7 @@ export class LinkPreviewService {
   /**
    * Fetches and processes link preview data
    */
-  static async getPreviewData(rawUrl: string): Promise<MetaData> {
+  static async getPreviewData(rawUrl: string, options: ScrapingOptions = {}): Promise<MetaData> {
     try {
       // Validate and sanitize URL
       const url = validateAndSanitizeUrl(rawUrl);
@@ -26,6 +26,18 @@ export class LinkPreviewService {
 
       // Parse metadata from head content
       const scrapedData = parseMetadata(headContent);
+      
+      // Fetch body images if requested
+      if (options.fetchBodyImages) {
+        try {
+          const bodyImages = await fetchBodyImages(url);
+          scrapedData.bodyImages = bodyImages;
+        } catch (error) {
+          // Don't fail the entire request if body image fetching fails
+          console.warn('Failed to fetch body images:', error);
+          scrapedData.bodyImages = [];
+        }
+      }
       
       // Normalize and structure data
       const metadata = normalizeMetadata(scrapedData, url);

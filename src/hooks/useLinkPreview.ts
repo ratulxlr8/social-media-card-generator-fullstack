@@ -7,6 +7,11 @@ interface PreviewData {
   image: string;
   favicon: string;
   url: string;
+  bodyImages?: string[];
+}
+
+interface UseLinkPreviewOptions {
+  fetchBodyImages?: boolean;
 }
 
 interface UseLinkPreviewReturn {
@@ -16,7 +21,7 @@ interface UseLinkPreviewReturn {
   refetch: () => void;
 }
 
-export function useLinkPreview(url: string): UseLinkPreviewReturn {
+export function useLinkPreview(url: string, options: UseLinkPreviewOptions = {}): UseLinkPreviewReturn {
   const [data, setData] = useState<PreviewData | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -33,7 +38,13 @@ export function useLinkPreview(url: string): UseLinkPreviewReturn {
       setLoading(true);
       setError(null);
       
-      const response = await fetch(`/api/link-preview?url=${encodeURIComponent(url)}`);
+      // Build query parameters
+      const params = new URLSearchParams({ url });
+      if (options.fetchBodyImages) {
+        params.set('fetchBodyImages', '1');
+      }
+      
+      const response = await fetch(`/api/link-preview?${params.toString()}`);
       const result: LinkPreviewResponse = await response.json();
       
       if (result.success && result.metadata) {
@@ -51,7 +62,7 @@ export function useLinkPreview(url: string): UseLinkPreviewReturn {
 
   useEffect(() => {
     fetchData();
-  }, [url]);
+  }, [url, options.fetchBodyImages]);
 
   return {
     data,

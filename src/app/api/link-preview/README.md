@@ -19,13 +19,18 @@ Extract metadata from a URL using query parameters.
 
 **Query Parameters:**
 - `url` (required): The URL to extract metadata from
+- `fetchBodyImages` (optional): Set to `1` or `true` to extract images from page body
 
-**Example Request:**
+**Example Requests:**
 ```bash
+# Basic metadata only
 GET /api/link-preview?url=https://example.com
+
+# Include body images
+GET /api/link-preview?url=https://example.com&fetchBodyImages=1
 ```
 
-**Example Success Response:**
+**Example Success Response (Basic):**
 ```json
 {
   "success": true,
@@ -36,6 +41,27 @@ GET /api/link-preview?url=https://example.com
     "image": "https://example.com/image.jpg",
     "favicon": "https://example.com/favicon.ico",
     "url": "https://example.com"
+  },
+  "timestamp": "2025-12-10T10:20:31.524Z"
+}
+```
+
+**Example Success Response (With Body Images):**
+```json
+{
+  "success": true,
+  "url": "https://example.com",
+  "metadata": {
+    "title": "Example Domain",
+    "description": "This domain is for use in illustrative examples",
+    "image": "https://example.com/image.jpg",
+    "favicon": "https://example.com/favicon.ico",
+    "url": "https://example.com",
+    "bodyImages": [
+      "https://example.com/photo1.jpg",
+      "https://example.com/photo2.png",
+      "https://example.com/gallery/image3.jpg"
+    ]
   },
   "timestamp": "2025-12-10T10:20:31.524Z"
 }
@@ -95,12 +121,31 @@ All responses follow a consistent format with these fields:
 - `502`: Bad Gateway (target website issues)
 - `503`: Service Unavailable (network error)
 
+## Body Image Extraction
+
+When `fetchBodyImages=1` is specified, the API will:
+
+1. **Stream Body Content**: Continues reading after `<body>` tag
+2. **Extract Images**: Finds `<img>` tags in the page body
+3. **Filter Results**: Ignores tracking pixels, SVGs, and base64 images
+4. **Resolve URLs**: Converts relative URLs to absolute URLs
+5. **Limit Results**: Returns maximum 10 images to prevent abuse
+
+**Guardrails:**
+- Maximum 500KB of body content processed
+- Maximum 10 images extracted per request
+- Ignores images smaller than 100px
+- Filters out tracking pixels and analytics images
+- Same timeout and security restrictions apply
+
 ## Performance Optimizations
 
-1. **Streaming Parser**: Stops reading as soon as `</head>` is found
-2. **Timeout Protection**: 15-second timeout prevents hanging requests
-3. **Size Limits**: Maximum 100KB head content to prevent memory issues
-4. **Efficient Regex**: Uses optimized regex patterns instead of full DOM parsing
+1. **Streaming Parser**: Stops reading as soon as `</head>` is found (default mode)
+2. **Conditional Body Parsing**: Only processes body content when requested
+3. **Timeout Protection**: 15-second timeout prevents hanging requests
+4. **Size Limits**: Maximum 100KB head content, 500KB body content
+5. **Efficient Regex**: Uses optimized regex patterns instead of full DOM parsing
+6. **Early Termination**: Stops when enough images are found
 
 ## Security Features
 
