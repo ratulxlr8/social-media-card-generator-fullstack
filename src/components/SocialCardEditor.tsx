@@ -1,5 +1,6 @@
 import type { LinkPreviewResponse } from '@/types/api';
 import { useEffect, useRef, useState } from 'react';
+import { detectLanguage } from '@/lib/htmlParser';
 
 // Type declarations for Fabric.js loaded from CDN
 declare global {
@@ -18,6 +19,9 @@ const SocialCardEditor = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [urlInput, setUrlInput] = useState('');
   const [ogData, setOgData] = useState<LinkPreviewResponse | null>(null);
+  const [fetchBodyImages, setFetchBodyImages] = useState(false);
+  const [bodyImages, setBodyImages] = useState<string[]>([]);
+  const [allImages, setAllImages] = useState<string[]>([]);
 
   // Default data for initial load
   const defaultData = {
@@ -88,7 +92,13 @@ const SocialCardEditor = () => {
 
     setIsLoading(true);
     try {
-      const response = await fetch(`/api/link-preview?url=${encodeURIComponent(url)}`);
+      // Build URL with fetchBodyImages parameter
+      const params = new URLSearchParams({ url });
+      if (fetchBodyImages) {
+        params.set('fetchBodyImages', '1');
+      }
+
+      const response = await fetch(`/api/link-preview?${params.toString()}`);
       const data: LinkPreviewResponse = await response.json();
       setOgData(data);
 
@@ -100,6 +110,15 @@ const SocialCardEditor = () => {
         setTitle(newTitle);
         setDescription(newDescription);
         setImageUrl(newImageUrl);
+
+        // Handle body images
+        const fetchedBodyImages = data.metadata.bodyImages || [];
+        setBodyImages(fetchedBodyImages);
+
+        // Create combined image list (main image + body images)
+        const combinedImages = [newImageUrl, ...fetchedBodyImages].filter(img => img && img.trim() !== '');
+        setAllImages(combinedImages);
+
         renderCard(newTitle, newImageUrl);
       } else {
         // Handle error response
@@ -107,6 +126,8 @@ const SocialCardEditor = () => {
         setTitle('Error fetching data');
         setDescription(data.error || 'Unknown error occurred');
         setImageUrl(defaultData.imageUrl);
+        setBodyImages([]);
+        setAllImages([defaultData.imageUrl]);
         renderCard('Error fetching data', defaultData.imageUrl);
       }
     } catch (error) {
@@ -115,6 +136,8 @@ const SocialCardEditor = () => {
       setTitle('Network error');
       setDescription('Failed to connect to the API');
       setImageUrl(defaultData.imageUrl);
+      setBodyImages([]);
+      setAllImages([defaultData.imageUrl]);
       renderCard('Network error', defaultData.imageUrl);
     } finally {
       setIsLoading(false);
@@ -129,6 +152,8 @@ const SocialCardEditor = () => {
       setTitle(defaultData.title);
       setDescription(defaultData.description);
       setImageUrl(defaultData.imageUrl);
+      setBodyImages([]);
+      setAllImages([defaultData.imageUrl]);
       renderCard(defaultData.title, defaultData.imageUrl);
       setIsLoading(false);
     }, 500);
@@ -145,12 +170,15 @@ const SocialCardEditor = () => {
     if (!fabricCanvasRef.current) return;
 
     const canvas = fabricCanvasRef.current;
-    
+
     // Render immediately, font loading will happen automatically
     renderCardContent(titleText, imgUrl, canvas);
   };
 
   const renderCardContent = (titleText: string, imgUrl: string, canvas: FabricCanvas) => {
+    // Detect language for subtitle
+    const language = detectLanguage(titleText);
+    const subtitleText = language === 'bn' ? 'বিস্তারিত কমেন্টে' : 'See details in comments';
 
     // Clear previous content (keep grid)
     const objects = canvas.getObjects();
@@ -179,7 +207,7 @@ const SocialCardEditor = () => {
     // Add title text at the top with proper centering and wrapping
     const titlePadding = 40;
     const titleWidth = cardWidth - (titlePadding * 2);
-    
+
     const title = new fabric.Textbox(titleText, {
       left: canvasSize / 2, // Center horizontally on canvas
       top: 40,
@@ -267,7 +295,7 @@ const SocialCardEditor = () => {
     }
 
     // Add subtitle at the bottom with proper centering and wrapping
-    const subtitle = new fabric.Textbox('বিস্তারিত কমেন্টে', {
+    const subtitle = new fabric.Textbox(subtitleText, {
       left: canvasSize / 2, // Center horizontally on canvas
       top: cardHeight - 70,
       width: titleWidth,
@@ -445,6 +473,11 @@ const SocialCardEditor = () => {
     }
   };
 
+  const handleImageSelect = (selectedImageUrl: string) => {
+    setImageUrl(selectedImageUrl);
+    renderCard(title, selectedImageUrl);
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 p-6 md:p-8">
       {/* Subtle background glow */}
@@ -491,6 +524,21 @@ const SocialCardEditor = () => {
                   placeholder="Enter URL..."
                   className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white placeholder-white/40 text-sm focus:border-purple-500/50 focus:outline-none transition-colors"
                 />
+
+                {/* Body Images Checkbox */}
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="fetchBodyImages"
+                    checked={fetchBodyImages}
+                    onChange={(e) => setFetchBodyImages(e.target.checked)}
+                    className="w-4 h-4 text-purple-600 bg-white/10 border-white/20 rounded focus:ring-purple-500 focus:ring-2"
+                  />
+                  <label htmlFor="fetchBodyImages" className="text-sm text-white/80">
+                    Extract body images
+                  </label>
+                </div>
+
                 <button
                   type="submit"
                   disabled={isLoading || !urlInput.trim()}
@@ -547,6 +595,60 @@ const SocialCardEditor = () => {
               </div>
             </div>
 
+            {/* Body Images Section */}
+            {(allImages.length > 0 || (fetchBodyImages && ogData)) && (
+              <div className="backdrop-blur-xl bg-white/5 rounded-2xl p-5 border border-white/10">
+                <h2 className="text-lg font-semibold text-white mb-4">
+                  Images ({allImages.length})
+                </h2>
+
+                {allImages.length > 0 ? (
+                  <>
+                    <div className="grid grid-cols-2 gap-2 max-h-60 overflow-y-auto">
+                      {allImages.map((imgUrl, index) => (
+                        <div
+                          key={index}
+                          className={`relative group cursor-pointer rounded-lg overflow-hidden border-2 transition-all ${imgUrl === imageUrl
+                            ? 'border-purple-500 ring-2 ring-purple-500/50'
+                            : 'border-white/20 hover:border-white/40'
+                            }`}
+                          onClick={() => handleImageSelect(imgUrl)}
+                        >
+                          <img
+                            src={imgUrl}
+                            alt={`Image ${index + 1}`}
+                            className="w-full h-16 object-cover"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).style.display = 'none';
+                            }}
+                          />
+                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                            {imgUrl === imageUrl && (
+                              <div className="w-4 h-4 bg-purple-500 rounded-full border-2 border-white"></div>
+                            )}
+                          </div>
+                          {index === 0 && (
+                            <div className="absolute top-1 left-1 bg-purple-500 text-white text-xs px-1.5 py-0.5 rounded">
+                              Main
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-xs text-white/50 mt-2">
+                      Click any image to use it in your card
+                    </p>
+                  </>
+                ) : fetchBodyImages && ogData && (
+                  <div className="text-center py-4">
+                    <p className="text-sm text-white/60">
+                      No additional images found in the page body
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Metadata Display */}
             {(title || description) && (
               <div className="backdrop-blur-xl bg-white/5 rounded-2xl p-5 border border-white/10">
@@ -562,6 +664,16 @@ const SocialCardEditor = () => {
                     <div>
                       <label className="block text-xs font-medium text-white/50 mb-1">Description</label>
                       <p className="text-sm text-white/70 line-clamp-2">{description}</p>
+                    </div>
+                  )}
+                  {bodyImages.length > 0 && (
+                    <div>
+                      <label className="block text-xs font-medium text-white/50 mb-1">
+                        Body Images Found
+                      </label>
+                      <p className="text-sm text-white/70">
+                        {bodyImages.length} additional images extracted
+                      </p>
                     </div>
                   )}
                 </div>

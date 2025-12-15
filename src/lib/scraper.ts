@@ -22,6 +22,18 @@ export interface ScrapingOptions {
 }
 
 import { SCRAPER_CONFIG } from '@/config/scraper';
+import {
+  decodeHtmlEntities,
+  extractMetaContent,
+  extractTitle,
+  extractFavicon,
+  extractBodyImages as parseBodyImages,
+  countImageTags,
+  findHeadEndIndex,
+  findBodyStartIndex,
+  hasHeadEnd,
+  hasBodyStart,
+} from './htmlParser';
 
 /**
  * Streams HTML content and stops when </head> is found
@@ -56,20 +68,22 @@ export async function fetchHeadContent(url: string): Promise<string> {
     try {
       while (!headFound) {
         const { done, value } = await reader.read();
-        
+
         if (done) break;
-        
+
         const chunk = decoder.decode(value, { stream: true });
         collected += chunk;
-        
+
         // Check if we have the complete head section
-        if (collected.includes('</head>')) {
-          const headEndIndex = collected.indexOf('</head>') + 7;
-          collected = collected.substring(0, headEndIndex);
-          headFound = true;
-          break;
+        if (hasHeadEnd(collected)) {
+          const headEndIndex = findHeadEndIndex(collected);
+          if (headEndIndex !== -1) {
+            collected = collected.substring(0, headEndIndex);
+            headFound = true;
+            break;
+          }
         }
-        
+
         // Prevent collecting too much data if head is unusually large
         if (collected.length > SCRAPER_CONFIG.MAX_HEAD_SIZE) {
           break;
@@ -85,46 +99,7 @@ export async function fetchHeadContent(url: string): Promise<string> {
   }
 }
 
-/**
- * Extracts content from meta tags using regex
- */
-function extractMetaContent(html: string, property: string, isProperty = false): string | undefined {
-  const attribute = isProperty ? 'property' : 'name';
-  const regex = new RegExp(
-    `<meta[^>]+${attribute}=["']${property}["'][^>]+content=["']([^"']+)["']`,
-    'i'
-  );
-  const match = regex.exec(html);
-  return match ? match[1].trim() : undefined;
-}
 
-/**
- * Extracts title from HTML
- */
-function extractTitle(html: string): string | undefined {
-  const titleMatch = /<title[^>]*>([^<]+)<\/title>/i.exec(html);
-  return titleMatch ? titleMatch[1].trim() : undefined;
-}
-
-/**
- * Extracts favicon href from link tags
- */
-function extractFavicon(html: string): string | undefined {
-  const patterns = [
-    /<link[^>]+rel=["']icon["'][^>]+href=["']([^"']+)["']/i,
-    /<link[^>]+rel=["']shortcut icon["'][^>]+href=["']([^"']+)["']/i,
-    /<link[^>]+rel=["']apple-touch-icon["'][^>]+href=["']([^"']+)["']/i,
-  ];
-
-  for (const pattern of patterns) {
-    const match = pattern.exec(html);
-    if (match) {
-      return match[1].trim();
-    }
-  }
-
-  return undefined;
-}
 
 /**
  * Parses HTML head content and extracts metadata using regex
@@ -174,19 +149,21 @@ export async function fetchBodyImages(url: string): Promise<string[]> {
     try {
       while (imageCount < SCRAPER_CONFIG.MAX_BODY_IMAGES) {
         const { done, value } = await reader.read();
-        
+
         if (done) break;
-        
+
         const chunk = decoder.decode(value, { stream: true });
         collected += chunk;
-        
+
         // Start collecting after <body> tag
-        if (!bodyStartFound && collected.includes('<body')) {
-          const bodyStartIndex = collected.indexOf('<body');
-          collected = collected.substring(bodyStartIndex);
-          bodyStartFound = true;
+        if (!bodyStartFound && hasBodyStart(collected)) {
+          const bodyStartIndex = findBodyStartIndex(collected);
+          if (bodyStartIndex !== -1) {
+            collected = collected.substring(bodyStartIndex);
+            bodyStartFound = true;
+          }
         }
-        
+
         // If we haven't found body yet, continue
         if (!bodyStartFound) {
           // Keep only recent content to avoid memory issues
@@ -195,14 +172,13 @@ export async function fetchBodyImages(url: string): Promise<string[]> {
           }
           continue;
         }
-        
+
         // Count images found so far
-        const imgMatches = collected.match(/<img[^>]+>/gi) || [];
-        imageCount = imgMatches.length;
-        
+        imageCount = countImageTags(collected);
+
         // Stop if we have enough images or too much content
-        if (imageCount >= SCRAPER_CONFIG.MAX_BODY_IMAGES || 
-            collected.length > SCRAPER_CONFIG.MAX_BODY_SIZE) {
+        if (imageCount >= SCRAPER_CONFIG.MAX_BODY_IMAGES ||
+          collected.length > SCRAPER_CONFIG.MAX_BODY_SIZE) {
           break;
         }
       }
@@ -211,44 +187,18 @@ export async function fetchBodyImages(url: string): Promise<string[]> {
     }
 
     // Extract and filter images
-    return extractBodyImages(collected, url);
+    return parseBodyImages(
+      collected,
+      url,
+      SCRAPER_CONFIG.MAX_BODY_IMAGES,
+      SCRAPER_CONFIG.IGNORED_IMAGE_PATTERNS
+    );
   } finally {
     clearTimeout(timeoutId);
   }
 }
 
-/**
- * Extracts image URLs from body HTML content
- */
-function extractBodyImages(bodyHtml: string, baseUrl: string): string[] {
-  const imgRegex = /<img[^>]+src=["']([^"']+)["'][^>]*>/gi;
-  const images: string[] = [];
-  let match;
 
-  while ((match = imgRegex.exec(bodyHtml)) !== null && images.length < SCRAPER_CONFIG.MAX_BODY_IMAGES) {
-    const src = match[1].trim();
-    
-    // Skip if matches ignored patterns
-    if (SCRAPER_CONFIG.IGNORED_IMAGE_PATTERNS.some(pattern => pattern.test(src))) {
-      continue;
-    }
-    
-    // Resolve relative URLs
-    try {
-      const resolvedUrl = new URL(src, baseUrl).toString();
-      
-      // Avoid duplicates
-      if (!images.includes(resolvedUrl)) {
-        images.push(resolvedUrl);
-      }
-    } catch {
-      // Skip invalid URLs
-      continue;
-    }
-  }
-
-  return images;
-}
 
 /**
  * Normalizes and prioritizes metadata for frontend consumption
@@ -256,11 +206,11 @@ function extractBodyImages(bodyHtml: string, baseUrl: string): string[] {
 export function normalizeMetadata(scraped: ScrapedData, originalUrl: string): MetaData {
   const title = scraped.ogTitle || scraped.title || '';
   const description = scraped.ogDescription || scraped.description || '';
-  
+
   // Handle relative URLs for image and favicon
   const resolveUrl = (relativeUrl: string | undefined): string => {
     if (!relativeUrl) return '';
-    
+
     try {
       return new URL(relativeUrl, originalUrl).toString();
     } catch {

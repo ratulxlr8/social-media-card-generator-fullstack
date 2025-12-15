@@ -1,4 +1,5 @@
-import { forwardRef } from 'react';
+import { forwardRef, useMemo } from 'react';
+import { detectLanguage } from '@/lib/htmlParser';
 
 interface CardDesignProps {
   title: string;
@@ -8,6 +9,17 @@ interface CardDesignProps {
 
 const CardDesign = forwardRef<HTMLDivElement, CardDesignProps>(
   ({ title, onTitleChange, image }, ref) => {
+    // Detect language of the title
+    const language = useMemo(() => detectLanguage(title), [title]);
+
+    // Footer text based on detected language
+    const footerText = useMemo(() => {
+      if (language === 'bn') {
+        return 'বিস্তারিত দেখুন কমেন্টে';
+      }
+      return 'See details in comments';
+    }, [language]);
+
     return (
       <div
         ref={ref}
@@ -43,7 +55,7 @@ const CardDesign = forwardRef<HTMLDivElement, CardDesignProps>(
 
         {/* Footer */}
         <div className="px-6 py-4 bg-gray-50 flex items-center justify-center">
-          <p className="font-bengali">বিস্তারিত দেখুন কমেন্টে</p>
+          <p className={language === 'bn' ? 'font-bengali' : ''}>{footerText}</p>
         </div>
       </div>
     );
