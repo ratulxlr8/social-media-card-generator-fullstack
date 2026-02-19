@@ -167,3 +167,18 @@
   transform: translateY(-2px);
   box-shadow: 0 12px 40px 0 rgba(31, 38, 135, 0.5);
 }
+
+/* Fabric.js canvas responsive override
+   Fabric sets inline width/height:1080px on .canvas-container and both <canvas> elements.
+   We scope the overrides under a wrapper class to avoid affecting other canvases. */
+.canvas-preview-wrapper .canvas-container {
+  width: 100% !important;
+  height: auto !important;
+  max-width: 540px;
+  aspect-ratio: 1 / 1;
+}
+
+.canvas-preview-wrapper .canvas-container canvas {
+  width: 100% !important;
+  height: 100% !important;
+}

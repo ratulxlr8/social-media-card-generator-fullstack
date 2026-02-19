@@ -8,6 +8,7 @@ export interface LinkPreviewMetadata {
   image: string;
   favicon: string;
   url: string;
+  bodyImages?: string[];
 }
 
 export interface LinkPreviewSuccessResponse {
