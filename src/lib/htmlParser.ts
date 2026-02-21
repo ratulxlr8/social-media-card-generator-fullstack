@@ -76,11 +76,12 @@ export function decodeHtmlEntities(text: string): string {
 export function extractMetaContent(html: string, property: string, isProperty = false): string | undefined {
     const attribute = isProperty ? 'property' : 'name';
     const regex = new RegExp(
-        `<meta[^>]+${attribute}=["']${property}["'][^>]+content=["']([^"']+)["']`,
+        `<meta[^>]+(?:${attribute}=["']${property}["'][^>]+content=["']([^"']+)["']|content=["']([^"']+)["'][^>]+${attribute}=["']${property}["'])`,
         'i'
     );
     const match = regex.exec(html);
-    return match ? decodeHtmlEntities(match[1].trim()) : undefined;
+    const content = match ? (match[1] || match[2]) : undefined;
+    return content ? decodeHtmlEntities(content.trim()) : undefined;
 }
 
 /**

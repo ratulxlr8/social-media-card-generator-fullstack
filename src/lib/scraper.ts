@@ -23,16 +23,15 @@ export interface ScrapingOptions {
 
 import { SCRAPER_CONFIG } from '@/config/scraper';
 import {
-  decodeHtmlEntities,
+  countImageTags,
+  extractFavicon,
   extractMetaContent,
   extractTitle,
-  extractFavicon,
-  extractBodyImages as parseBodyImages,
-  countImageTags,
-  findHeadEndIndex,
   findBodyStartIndex,
-  hasHeadEnd,
+  findHeadEndIndex,
   hasBodyStart,
+  hasHeadEnd,
+  extractBodyImages as parseBodyImages
 } from './htmlParser';
 
 /**
@@ -218,7 +217,7 @@ export function normalizeMetadata(scraped: ScrapedData, originalUrl: string): Me
     }
   };
 
-  const image = resolveUrl(scraped.ogImage);
+  const image = resolveUrl(scraped.ogImage) || (scraped.bodyImages && scraped.bodyImages.length > 0 ? scraped.bodyImages[0] : '');
   const favicon = resolveUrl(scraped.favicon) || resolveUrl('/favicon.ico');
 
   const result: MetaData = {

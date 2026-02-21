@@ -1,6 +1,19 @@
+import { detectLanguage } from '@/lib/htmlParser';
 import type { LinkPreviewResponse } from '@/types/api';
 import { useEffect, useRef, useState } from 'react';
-import { detectLanguage } from '@/lib/htmlParser';
+
+/**
+ * Routes external image URLs through our server-side proxy to bypass CORS.
+ * Local/data URLs are passed through unchanged.
+ */
+function getProxiedImageUrl(url: string): string {
+  if (!url) return url;
+  // Don't proxy data URIs, blobs, or relative paths
+  if (url.startsWith('data:') || url.startsWith('blob:') || url.startsWith('/')) {
+    return url;
+  }
+  return `/api/image-proxy?url=${encodeURIComponent(url)}`;
+}
 
 // Type declarations for Fabric.js loaded from CDN
 declare global {
@@ -56,28 +69,30 @@ const SocialCardEditor = () => {
   const initializeCanvas = () => {
     if (typeof fabric === 'undefined' || !canvasRef.current) return;
 
-    // Make canvas responsive but maintain 1:1 aspect ratio
-    const canvasSize = 600; // Smaller display size for better layout
+    const canvasWidth = 1080;
+    const canvasHeight = 810; // 4:3 aspect ratio
 
     const canvas = new fabric.Canvas(canvasRef.current, {
-      width: canvasSize,
-      height: canvasSize,
+      width: canvasWidth,
+      height: canvasHeight,
       backgroundColor: '#2c3e50'
     });
 
     fabricCanvasRef.current = canvas;
 
     // Add subtle grid for better UX
-    const gridSize = 30;
-    for (let i = 0; i <= (canvasSize / gridSize); i++) {
-      canvas.add(new fabric.Line([i * gridSize, 0, i * gridSize, canvasSize], {
+    const gridSize = 54;
+    for (let i = 0; i <= (canvasWidth / gridSize); i++) {
+      canvas.add(new fabric.Line([i * gridSize, 0, i * gridSize, canvasHeight], {
         stroke: '#34495e',
         strokeWidth: 1,
         selectable: false,
         evented: false,
         opacity: 0.3
       }));
-      canvas.add(new fabric.Line([0, i * gridSize, canvasSize, i * gridSize], {
+    }
+    for (let i = 0; i <= (canvasHeight / gridSize); i++) {
+      canvas.add(new fabric.Line([0, i * gridSize, canvasWidth, i * gridSize], {
         stroke: '#34495e',
         strokeWidth: 1,
         selectable: false,
@@ -121,7 +136,6 @@ const SocialCardEditor = () => {
 
         renderCard(newTitle, newImageUrl);
       } else {
-        // Handle error response
         console.error('API Error:', data.error);
         setTitle('Error fetching data');
         setDescription(data.error || 'Unknown error occurred');
@@ -132,7 +146,6 @@ const SocialCardEditor = () => {
       }
     } catch (error) {
       console.error('Error fetching OG data:', error);
-      // Fallback to default data
       setTitle('Network error');
       setDescription('Failed to connect to the API');
       setImageUrl(defaultData.imageUrl);
@@ -188,12 +201,11 @@ const SocialCardEditor = () => {
       }
     });
 
-    // Card dimensions - full canvas size
-    const canvasSize = 600;
-    const cardWidth = canvasSize;
-    const cardHeight = canvasSize;
+    // Card dimensions — full canvas size (1080×810, 4:3)
+    const cardWidth = 1080;
+    const cardHeight = 810;
 
-    // Add main card background - full size, no padding
+    // Add main card background — full size, no padding
     const cardBg = new fabric.Rect({
       left: 0,
       top: 0,
@@ -205,14 +217,14 @@ const SocialCardEditor = () => {
     canvas.add(cardBg);
 
     // Add title text at the top with proper centering and wrapping
-    const titlePadding = 40;
+    const titlePadding = 72;
     const titleWidth = cardWidth - (titlePadding * 2);
 
     const title = new fabric.Textbox(titleText, {
-      left: canvasSize / 2, // Center horizontally on canvas
-      top: 40,
+      left: cardWidth / 2,
+      top: 54,
       width: titleWidth,
-      fontSize: 24,
+      fontSize: 42,
       fontWeight: 'bold',
       fill: '#2c3e50',
       fontFamily: 'Noto Serif Bengali',
@@ -226,7 +238,6 @@ const SocialCardEditor = () => {
       lineHeight: 1.4,
       charSpacing: 0,
       breakWords: false,
-      // Enable resizing
       lockRotation: false,
       lockScalingFlip: true,
       hasControls: true,
@@ -235,42 +246,34 @@ const SocialCardEditor = () => {
     canvas.add(title);
 
     // Calculate image area (leaving space for title and subtitle)
-    const imageAreaTop = 90;
-    const imageAreaHeight = cardHeight - 160; // Space for title (90) and subtitle (70)
-    const imageAreaWidth = cardWidth - 60; // 30px padding on each side
-    const imageAreaLeft = 30;
+    const imageAreaTop = 130;
+    const imageAreaHeight = cardHeight - 220;
+    const imageAreaWidth = cardWidth - 108;
+    const imageAreaLeft = 54;
 
     // Add image with proper aspect ratio
     if (imgUrl) {
-      fabric.Image.fromURL(imgUrl, (img: FabricObject) => {
+      fabric.Image.fromURL(getProxiedImageUrl(imgUrl), (img: FabricObject) => {
         const imgWidth = img.width || 800;
         const imgHeight = img.height || 600;
         const imgAspectRatio = imgWidth / imgHeight;
 
-        // Calculate dimensions maintaining aspect ratio
         let finalWidth, finalHeight;
-
-        // Check if image should be 16:9 or maintain original ratio
         const targetAspectRatio = 16 / 9;
 
         if (Math.abs(imgAspectRatio - targetAspectRatio) > 0.5) {
-          // Force 16:9 if original ratio is significantly different
           finalWidth = imageAreaWidth;
           finalHeight = finalWidth / targetAspectRatio;
 
-          // If height exceeds available space, scale down
           if (finalHeight > imageAreaHeight) {
             finalHeight = imageAreaHeight;
             finalWidth = finalHeight * targetAspectRatio;
           }
         } else {
-          // Maintain original aspect ratio
           if (imgAspectRatio > (imageAreaWidth / imageAreaHeight)) {
-            // Image is wider, fit to width
             finalWidth = imageAreaWidth;
             finalHeight = finalWidth / imgAspectRatio;
           } else {
-            // Image is taller, fit to height
             finalHeight = imageAreaHeight;
             finalWidth = finalHeight * imgAspectRatio;
           }
@@ -294,12 +297,12 @@ const SocialCardEditor = () => {
       }, { crossOrigin: 'anonymous' });
     }
 
-    // Add subtitle at the bottom with proper centering and wrapping
+    // Add subtitle at the bottom with proper centering
     const subtitle = new fabric.Textbox(subtitleText, {
-      left: canvasSize / 2, // Center horizontally on canvas
-      top: cardHeight - 70,
+      left: cardWidth / 2,
+      top: cardHeight - 90,
       width: titleWidth,
-      fontSize: 16,
+      fontSize: 28,
       fill: '#7f8c8d',
       fontFamily: 'Arial, sans-serif',
       textAlign: 'center',
@@ -313,7 +316,6 @@ const SocialCardEditor = () => {
       charSpacing: 0,
       splitByGrapheme: true,
       breakWords: false,
-      // Enable resizing
       lockRotation: false,
       lockScalingFlip: true,
       hasControls: true,
@@ -327,17 +329,17 @@ const SocialCardEditor = () => {
   const downloadCard = () => {
     if (!fabricCanvasRef.current) return;
 
-    // Export at 2x resolution (1200x1200) while displaying at 600x600
+    // Export at native 1080×810 resolution (4:3)
     const dataURL = fabricCanvasRef.current.toDataURL({
       format: 'png',
       quality: 1,
-      multiplier: 2, // This will make it 1200x1200
-      width: 600,
-      height: 600
+      multiplier: 1,
+      width: 1080,
+      height: 810
     });
 
     const link = document.createElement('a');
-    link.download = 'social-card-1200x1200.png';
+    link.download = 'social-card-1080x810.png';
     link.href = dataURL;
     link.click();
   };
@@ -346,10 +348,10 @@ const SocialCardEditor = () => {
     if (!fabricCanvasRef.current) return;
 
     const text = new fabric.Textbox('New Text', {
-      left: 300, // Center of 600px canvas
-      top: 150,
-      width: 200,
-      fontSize: 18,
+      left: 540,
+      top: 360,
+      width: 648,
+      fontSize: 58,
       fill: '#2c3e50',
       fontFamily: 'Arial, sans-serif',
       textAlign: 'center',
@@ -363,7 +365,6 @@ const SocialCardEditor = () => {
       charSpacing: 0,
       splitByGrapheme: true,
       breakWords: false,
-      // Enable resizing
       lockRotation: false,
       lockScalingFlip: true,
       hasControls: true,
@@ -403,7 +404,7 @@ const SocialCardEditor = () => {
             const imgHeight = img.height || 300;
 
             // Scale image to fit nicely on canvas
-            const maxSize = 200;
+            const maxSize = 648;
             let scaleX, scaleY;
 
             if (imgWidth > imgHeight) {
@@ -415,8 +416,8 @@ const SocialCardEditor = () => {
             }
 
             img.set({
-              left: 100,
-              top: 100,
+              left: 324,
+              top: 324,
               scaleX: scaleX,
               scaleY: scaleY,
               cornerColor: '#3498db',
@@ -439,12 +440,12 @@ const SocialCardEditor = () => {
   const addImageFromUrl = () => {
     const url = prompt('Enter image URL:');
     if (url && fabricCanvasRef.current) {
-      fabric.Image.fromURL(url, (img: FabricObject) => {
+      fabric.Image.fromURL(getProxiedImageUrl(url), (img: FabricObject) => {
         const imgWidth = img.width || 300;
         const imgHeight = img.height || 300;
 
         // Scale image to fit nicely on canvas
-        const maxSize = 200;
+        const maxSize = 648;
         let scaleX, scaleY;
 
         if (imgWidth > imgHeight) {
@@ -456,8 +457,8 @@ const SocialCardEditor = () => {
         }
 
         img.set({
-          left: 100,
-          top: 100,
+          left: 324,
+          top: 324,
           scaleX: scaleX,
           scaleY: scaleY,
           cornerColor: '#3498db',
@@ -479,62 +480,68 @@ const SocialCardEditor = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 p-6 md:p-8">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 p-4 md:p-6">
       {/* Subtle background glow */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/4 -left-32 w-96 h-96 bg-purple-500/20 rounded-full blur-3xl"></div>
-        <div className="absolute bottom-1/4 -right-32 w-96 h-96 bg-blue-500/20 rounded-full blur-3xl"></div>
+        <div className="absolute top-1/4 -left-32 w-80 h-80 bg-purple-500/15 rounded-full blur-3xl"></div>
+        <div className="absolute bottom-1/4 -right-32 w-80 h-80 bg-blue-500/15 rounded-full blur-3xl"></div>
       </div>
 
       <div className="max-w-7xl mx-auto relative">
-        {/* Header */}
-        <div className="mb-8 text-center md:text-left">
-          <h1 className="text-3xl md:text-4xl font-bold text-white mb-2">
-            Social Card Editor
-          </h1>
-          <p className="text-white/60">Create and customize your social media cards</p>
+        {/* Compact Header */}
+        <div className="mb-4 flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-bold text-white">
+              Social Card Editor
+            </h1>
+            <p className="text-sm text-white/50">Create 1080×810 social media cards</p>
+          </div>
+          <button
+            onClick={downloadCard}
+            className="bg-green-500/20 hover:bg-green-500/30 text-green-300 text-sm font-medium py-2 px-4 rounded-lg border border-green-500/20 transition-colors flex items-center gap-1.5"
+          >
+            ⬇ Download
+          </button>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
           {/* Canvas Area */}
-          <div className="lg:col-span-2">
-            <div className="backdrop-blur-xl bg-white/5 rounded-2xl p-4 md:p-6 border border-white/10">
-              <div className="flex justify-center">
+          <div className="lg:col-span-8">
+            <div className="backdrop-blur-xl bg-white/5 rounded-2xl p-3 md:p-4 border border-white/10 shadow-2xl shadow-purple-500/5">
+              <div className="flex justify-center canvas-preview-wrapper">
                 <canvas
                   ref={canvasRef}
-                  width={600}
-                  height={600}
-                  className="rounded-xl max-w-full h-auto"
-                  style={{ maxWidth: '600px', maxHeight: '600px' }}
+                  width={1080}
+                  height={810}
+                  className="rounded-xl"
                 />
               </div>
             </div>
           </div>
 
-          {/* Sidebar */}
-          <div className="space-y-4">
+          {/* Compact Sidebar */}
+          <div className="lg:col-span-4 space-y-3">
             {/* URL Input */}
-            <div className="backdrop-blur-xl bg-white/5 rounded-2xl p-5 border border-white/10">
-              <h2 className="text-lg font-semibold text-white mb-4">Fetch Preview</h2>
-              <form onSubmit={handleUrlSubmit} className="space-y-3">
+            <div className="backdrop-blur-xl bg-white/5 rounded-xl p-4 border border-white/10">
+              <h2 className="text-sm font-semibold text-white/80 uppercase tracking-wider mb-3">Fetch Preview</h2>
+              <form onSubmit={handleUrlSubmit} className="space-y-2">
                 <input
                   type="url"
                   value={urlInput}
                   onChange={(e) => setUrlInput(e.target.value)}
-                  placeholder="Enter URL..."
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white placeholder-white/40 text-sm focus:border-purple-500/50 focus:outline-none transition-colors"
+                  placeholder="Paste a URL..."
+                  className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white placeholder-white/30 text-sm focus:border-purple-500/50 focus:outline-none transition-colors"
                 />
 
-                {/* Body Images Checkbox */}
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center gap-2">
                   <input
                     type="checkbox"
                     id="fetchBodyImages"
                     checked={fetchBodyImages}
                     onChange={(e) => setFetchBodyImages(e.target.checked)}
-                    className="w-4 h-4 text-purple-600 bg-white/10 border-white/20 rounded focus:ring-purple-500 focus:ring-2"
+                    className="w-3.5 h-3.5 text-purple-600 bg-white/10 border-white/20 rounded focus:ring-purple-500 focus:ring-1"
                   />
-                  <label htmlFor="fetchBodyImages" className="text-sm text-white/80">
+                  <label htmlFor="fetchBodyImages" className="text-xs text-white/60">
                     Extract body images
                   </label>
                 </div>
@@ -542,153 +549,140 @@ const SocialCardEditor = () => {
                 <button
                   type="submit"
                   disabled={isLoading || !urlInput.trim()}
-                  className="w-full bg-purple-500 hover:bg-purple-600 disabled:bg-white/10 disabled:text-white/40 text-white font-medium py-2.5 px-4 rounded-xl transition-colors"
+                  className="w-full bg-purple-500 hover:bg-purple-600 disabled:bg-white/10 disabled:text-white/30 text-white text-sm font-medium py-2 px-4 rounded-lg transition-colors"
                 >
                   {isLoading ? 'Loading...' : 'Fetch'}
                 </button>
               </form>
             </div>
 
-            {/* Tools */}
-            <div className="backdrop-blur-xl bg-white/5 rounded-2xl p-5 border border-white/10">
-              <h2 className="text-lg font-semibold text-white mb-4">Tools</h2>
-              <div className="grid grid-cols-2 gap-2">
+            {/* Tools — compact 3-col grid */}
+            <div className="backdrop-blur-xl bg-white/5 rounded-xl p-4 border border-white/10">
+              <h2 className="text-sm font-semibold text-white/80 uppercase tracking-wider mb-3">Tools</h2>
+              <div className="grid grid-cols-3 gap-1.5">
                 <button
                   onClick={addText}
-                  className="bg-white/5 hover:bg-white/10 text-white/90 text-sm font-medium py-2.5 px-3 rounded-xl border border-white/10 transition-colors"
+                  className="bg-white/5 hover:bg-white/10 text-white/80 text-xs font-medium py-2 px-2 rounded-lg border border-white/10 transition-colors"
                 >
-                  Add Text
+                  + Text
                 </button>
                 <button
                   onClick={addImageFromFile}
-                  className="bg-white/5 hover:bg-white/10 text-white/90 text-sm font-medium py-2.5 px-3 rounded-xl border border-white/10 transition-colors"
+                  className="bg-white/5 hover:bg-white/10 text-white/80 text-xs font-medium py-2 px-2 rounded-lg border border-white/10 transition-colors"
                 >
                   Upload
                 </button>
                 <button
                   onClick={addImageFromUrl}
-                  className="bg-white/5 hover:bg-white/10 text-white/90 text-sm font-medium py-2.5 px-3 rounded-xl border border-white/10 transition-colors"
+                  className="bg-white/5 hover:bg-white/10 text-white/80 text-xs font-medium py-2 px-2 rounded-lg border border-white/10 transition-colors"
                 >
-                  Image URL
+                  URL
                 </button>
                 <button
                   onClick={deleteSelected}
-                  className="bg-red-500/20 hover:bg-red-500/30 text-red-300 text-sm font-medium py-2.5 px-3 rounded-xl border border-red-500/20 transition-colors"
+                  className="bg-red-500/15 hover:bg-red-500/25 text-red-300 text-xs font-medium py-2 px-2 rounded-lg border border-red-500/15 transition-colors"
                 >
                   Delete
                 </button>
-              </div>
-              <div className="mt-3 pt-3 border-t border-white/10 grid grid-cols-2 gap-2">
                 <button
                   onClick={reloadFromApi}
                   disabled={isLoading}
-                  className="bg-white/5 hover:bg-white/10 disabled:opacity-50 text-white/90 text-sm font-medium py-2.5 px-3 rounded-xl border border-white/10 transition-colors"
+                  className="bg-white/5 hover:bg-white/10 disabled:opacity-50 text-white/80 text-xs font-medium py-2 px-2 rounded-lg border border-white/10 transition-colors"
                 >
                   Reset
                 </button>
                 <button
                   onClick={downloadCard}
-                  className="bg-green-500/20 hover:bg-green-500/30 text-green-300 text-sm font-medium py-2.5 px-3 rounded-xl border border-green-500/20 transition-colors"
+                  className="bg-green-500/15 hover:bg-green-500/25 text-green-300 text-xs font-medium py-2 px-2 rounded-lg border border-green-500/15 transition-colors"
                 >
-                  Download
+                  Save
                 </button>
               </div>
             </div>
 
             {/* Body Images Section */}
             {(allImages.length > 0 || (fetchBodyImages && ogData)) && (
-              <div className="backdrop-blur-xl bg-white/5 rounded-2xl p-5 border border-white/10">
-                <h2 className="text-lg font-semibold text-white mb-4">
+              <div className="backdrop-blur-xl bg-white/5 rounded-xl p-4 border border-white/10">
+                <h2 className="text-sm font-semibold text-white/80 uppercase tracking-wider mb-3">
                   Images ({allImages.length})
                 </h2>
 
                 {allImages.length > 0 ? (
                   <>
-                    <div className="grid grid-cols-2 gap-2 max-h-60 overflow-y-auto">
+                    <div className="grid grid-cols-3 gap-1.5 max-h-48 overflow-y-auto">
                       {allImages.map((imgUrl, index) => (
                         <div
                           key={index}
                           className={`relative group cursor-pointer rounded-lg overflow-hidden border-2 transition-all ${imgUrl === imageUrl
-                            ? 'border-purple-500 ring-2 ring-purple-500/50'
-                            : 'border-white/20 hover:border-white/40'
+                            ? 'border-purple-500 ring-1 ring-purple-500/50'
+                            : 'border-white/15 hover:border-white/30'
                             }`}
                           onClick={() => handleImageSelect(imgUrl)}
                         >
                           <img
-                            src={imgUrl}
+                            src={getProxiedImageUrl(imgUrl)}
                             alt={`Image ${index + 1}`}
-                            className="w-full h-16 object-cover"
+                            className="w-full h-12 object-cover"
                             onError={(e) => {
                               (e.target as HTMLImageElement).style.display = 'none';
                             }}
                           />
                           <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
                             {imgUrl === imageUrl && (
-                              <div className="w-4 h-4 bg-purple-500 rounded-full border-2 border-white"></div>
+                              <div className="w-3 h-3 bg-purple-500 rounded-full border-2 border-white"></div>
                             )}
                           </div>
                           {index === 0 && (
-                            <div className="absolute top-1 left-1 bg-purple-500 text-white text-xs px-1.5 py-0.5 rounded">
-                              Main
+                            <div className="absolute top-0.5 left-0.5 bg-purple-500 text-white text-[10px] px-1 py-0.5 rounded">
+                              OG
                             </div>
                           )}
                         </div>
                       ))}
                     </div>
-                    <p className="text-xs text-white/50 mt-2">
-                      Click any image to use it in your card
+                    <p className="text-[10px] text-white/40 mt-1.5">
+                      Click to swap image
                     </p>
                   </>
                 ) : fetchBodyImages && ogData && (
-                  <div className="text-center py-4">
-                    <p className="text-sm text-white/60">
-                      No additional images found in the page body
-                    </p>
-                  </div>
+                  <p className="text-xs text-white/50 text-center py-2">
+                    No body images found
+                  </p>
                 )}
               </div>
             )}
 
-            {/* Metadata Display */}
+            {/* Metadata Display — compact */}
             {(title || description) && (
-              <div className="backdrop-blur-xl bg-white/5 rounded-2xl p-5 border border-white/10">
-                <h2 className="text-lg font-semibold text-white mb-4">Metadata</h2>
-                <div className="space-y-3">
+              <div className="backdrop-blur-xl bg-white/5 rounded-xl p-4 border border-white/10">
+                <h2 className="text-sm font-semibold text-white/80 uppercase tracking-wider mb-2">Metadata</h2>
+                <div className="space-y-1.5">
                   {title && (
                     <div>
-                      <label className="block text-xs font-medium text-white/50 mb-1">Title</label>
-                      <p className="text-sm text-white/90 truncate">{title}</p>
+                      <span className="text-[10px] font-medium text-white/40 uppercase">Title</span>
+                      <p className="text-xs text-white/80 truncate">{title}</p>
                     </div>
                   )}
                   {description && (
                     <div>
-                      <label className="block text-xs font-medium text-white/50 mb-1">Description</label>
-                      <p className="text-sm text-white/70 line-clamp-2">{description}</p>
+                      <span className="text-[10px] font-medium text-white/40 uppercase">Desc</span>
+                      <p className="text-xs text-white/60 line-clamp-2">{description}</p>
                     </div>
                   )}
                   {bodyImages.length > 0 && (
-                    <div>
-                      <label className="block text-xs font-medium text-white/50 mb-1">
-                        Body Images Found
-                      </label>
-                      <p className="text-sm text-white/70">
-                        {bodyImages.length} additional images extracted
-                      </p>
-                    </div>
+                    <p className="text-[10px] text-white/50">
+                      {bodyImages.length} body images extracted
+                    </p>
                   )}
                 </div>
               </div>
             )}
 
-            {/* Tips */}
-            <div className="backdrop-blur-xl bg-white/5 rounded-2xl p-5 border border-white/10">
-              <h2 className="text-lg font-semibold text-white mb-3">Quick Tips</h2>
-              <ul className="text-sm text-white/60 space-y-1.5">
-                <li>• Drag to move elements</li>
-                <li>• Double-click to edit text</li>
-                <li>• Drag corners to resize text</li>
-                <li>• Rotate using corner handle</li>
-              </ul>
+            {/* Tips — minimal */}
+            <div className="backdrop-blur-xl bg-white/5 rounded-xl p-3 border border-white/10">
+              <p className="text-[10px] text-white/40 leading-relaxed">
+                <span className="text-white/60 font-medium">Tips:</span> Drag to move · Double-click to edit · Corners to resize · Rotate via handle
+              </p>
             </div>
           </div>
         </div>

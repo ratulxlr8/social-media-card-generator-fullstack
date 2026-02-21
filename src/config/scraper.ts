@@ -36,6 +36,29 @@ export const SCRAPER_CONFIG = {
   // Allowed protocols
   ALLOWED_PROTOCOLS: ['http:', 'https:'],
   
+  // Enhanced headers for fallback requests (mimics real browser navigation)
+  ENHANCED_HEADERS: {
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+    'Accept-Language': 'en-US,en;q=0.5',
+    'Accept-Encoding': 'gzip, deflate, br',
+    'DNT': '1',
+    'Connection': 'keep-alive',
+    'Upgrade-Insecure-Requests': '1',
+    'Referer': 'https://www.google.com/',
+    'Sec-Fetch-Dest': 'document',
+    'Sec-Fetch-Mode': 'navigate',
+    'Sec-Fetch-Site': 'cross-site',
+    'Sec-Fetch-User': '?1',
+    'Cache-Control': 'max-age=0',
+  },
+
+  // Puppeteer headless browser config (Tier 2 fallback)
+  PUPPETEER: {
+    TIMEOUT: 20000,
+    WAIT_UNTIL: 'domcontentloaded' as const,
+    VIEWPORT: { width: 1280, height: 720 },
+  },
+
   // Image filtering patterns
   IGNORED_IMAGE_PATTERNS: [
     /^data:/, // base64 images
