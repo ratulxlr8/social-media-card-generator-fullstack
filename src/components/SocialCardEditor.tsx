@@ -304,7 +304,7 @@ const SocialCardEditor = () => {
       width: titleWidth,
       fontSize: 28,
       fill: '#7f8c8d',
-      fontFamily: 'Arial, sans-serif',
+      fontFamily: 'Noto Serif Bengali',
       textAlign: 'center',
       originX: 'center',
       originY: 'top',
