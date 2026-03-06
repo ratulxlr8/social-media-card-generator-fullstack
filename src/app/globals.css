@@ -44,73 +44,68 @@
   --radius-xl: calc(var(--radius) + 4px);
 }
 
+/* ───────── Canva-style editor tokens ───────── */
 :root {
   --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.129 0.042 264.695);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.129 0.042 264.695);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.129 0.042 264.695);
-  --primary: oklch(0.208 0.042 265.755);
-  --primary-foreground: oklch(0.984 0.003 247.858);
-  --secondary: oklch(0.968 0.007 247.896);
-  --secondary-foreground: oklch(0.208 0.042 265.755);
-  --muted: oklch(0.968 0.007 247.896);
-  --muted-foreground: oklch(0.554 0.046 257.417);
-  --accent: oklch(0.968 0.007 247.896);
-  --accent-foreground: oklch(0.208 0.042 265.755);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.929 0.013 255.508);
-  --input: oklch(0.929 0.013 255.508);
-  --ring: oklch(0.704 0.04 256.788);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.984 0.003 247.858);
-  --sidebar-foreground: oklch(0.129 0.042 264.695);
-  --sidebar-primary: oklch(0.208 0.042 265.755);
-  --sidebar-primary-foreground: oklch(0.984 0.003 247.858);
-  --sidebar-accent: oklch(0.968 0.007 247.896);
-  --sidebar-accent-foreground: oklch(0.208 0.042 265.755);
-  --sidebar-border: oklch(0.929 0.013 255.508);
-  --sidebar-ring: oklch(0.704 0.04 256.788);
-}
 
-.dark {
-  --background: oklch(0.129 0.042 264.695);
-  --foreground: oklch(0.984 0.003 247.858);
-  --card: oklch(0.208 0.042 265.755);
-  --card-foreground: oklch(0.984 0.003 247.858);
-  --popover: oklch(0.208 0.042 265.755);
-  --popover-foreground: oklch(0.984 0.003 247.858);
-  --primary: oklch(0.929 0.013 255.508);
-  --primary-foreground: oklch(0.208 0.042 265.755);
-  --secondary: oklch(0.279 0.041 260.031);
-  --secondary-foreground: oklch(0.984 0.003 247.858);
-  --muted: oklch(0.279 0.041 260.031);
-  --muted-foreground: oklch(0.704 0.04 256.788);
-  --accent: oklch(0.279 0.041 260.031);
-  --accent-foreground: oklch(0.984 0.003 247.858);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.551 0.027 264.364);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.208 0.042 265.755);
-  --sidebar-foreground: oklch(0.984 0.003 247.858);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.984 0.003 247.858);
-  --sidebar-accent: oklch(0.279 0.041 260.031);
-  --sidebar-accent-foreground: oklch(0.984 0.003 247.858);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.551 0.027 264.364);
+  /* Editor chrome */
+  --editor-bg: #13131a;
+  --navbar-bg: #18181b;
+  --sidebar-bg-color: #1e1e2e;
+  --panel-bg: #252536;
+  --surface: #2d2d3d;
+  --surface-hover: #3a3a4a;
+  --surface-active: #44445a;
+
+  /* Accent */
+  --accent-purple: #7c3aed;
+  --accent-purple-hover: #6d28d9;
+  --accent-green: #22c55e;
+  --accent-red: #ef4444;
+
+  /* Text */
+  --text-primary: #f1f1f4;
+  --text-secondary: #a1a1aa;
+  --text-muted: #71717a;
+  --text-dim: #52525b;
+
+  /* Borders */
+  --border-subtle: rgba(255, 255, 255, 0.06);
+  --border-default: rgba(255, 255, 255, 0.1);
+  --border-strong: rgba(255, 255, 255, 0.16);
+
+  /* Shadcn overrides */
+  --background: #13131a;
+  --foreground: #f1f1f4;
+  --card: #1e1e2e;
+  --card-foreground: #f1f1f4;
+  --popover: #252536;
+  --popover-foreground: #f1f1f4;
+  --primary: #7c3aed;
+  --primary-foreground: #ffffff;
+  --secondary: #2d2d3d;
+  --secondary-foreground: #f1f1f4;
+  --muted: #2d2d3d;
+  --muted-foreground: #a1a1aa;
+  --accent: #2d2d3d;
+  --accent-foreground: #f1f1f4;
+  --destructive: #ef4444;
+  --border: rgba(255, 255, 255, 0.1);
+  --input: rgba(255, 255, 255, 0.1);
+  --ring: #7c3aed;
+  --chart-1: #7c3aed;
+  --chart-2: #22c55e;
+  --chart-3: #f59e0b;
+  --chart-4: #ef4444;
+  --chart-5: #3b82f6;
+  --sidebar: #1e1e2e;
+  --sidebar-foreground: #a1a1aa;
+  --sidebar-primary: #7c3aed;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #2d2d3d;
+  --sidebar-accent-foreground: #f1f1f4;
+  --sidebar-border: rgba(255, 255, 255, 0.06);
+  --sidebar-ring: #7c3aed;
 }
 
 @layer base {
@@ -121,6 +116,7 @@
     @apply bg-background text-foreground;
   }
 }
+
 @layer utilities {
   .font-noto-serif-bengali {
     font-family: var(--font-noto-serif-bengali), Arial, sans-serif;
@@ -133,52 +129,524 @@
   font-display: swap;
   src: local('Noto Serif Bengali'), local('NotoSerifBengali');
 }
-/* Glassmorphic animations */
-@keyframes float {
-  0%, 100% { transform: translateY(0px); }
-  50% { transform: translateY(-20px); }
+
+/* ───────── Editor Layout ───────── */
+
+/* Full-viewport editor shell */
+.editor-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+  background: var(--editor-bg);
 }
 
-.animation-delay-2000 {
-  animation-delay: 2s;
+/* Top navbar */
+.editor-navbar {
+  height: 48px;
+  min-height: 48px;
+  background: var(--navbar-bg);
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  z-index: 50;
 }
 
-.animation-delay-4000 {
-  animation-delay: 4s;
+/* Body = sidebar + panel + workspace */
+.editor-body {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
 }
 
-/* Custom glassmorphic backdrop blur */
-.glass-panel {
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+/* Icon sidebar (narrow) */
+.editor-sidebar {
+  width: 68px;
+  min-width: 68px;
+  background: var(--sidebar-bg-color);
+  border-right: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 0;
+  gap: 2px;
+  z-index: 40;
+  overflow-y: auto;
 }
 
-/* Smooth transitions for all glassmorphic elements */
-.glass-transition {
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+.sidebar-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: 56px;
+  padding: 10px 4px 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  transition: all 0.15s ease;
+  user-select: none;
 }
 
-/* Hover effects for glassmorphic buttons */
-.glass-button:hover {
-  background: rgba(255, 255, 255, 0.2);
-  transform: translateY(-2px);
-  box-shadow: 0 12px 40px 0 rgba(31, 38, 135, 0.5);
+.sidebar-btn:hover {
+  background: var(--surface);
+  color: var(--text-primary);
 }
 
-/* Fabric.js canvas responsive override
-   Fabric sets inline width/height:1080px on .canvas-container and both <canvas> elements.
-   We scope the overrides under a wrapper class to avoid affecting other canvases. */
-.canvas-preview-wrapper .canvas-container {
-  width: 100% !important;
-  height: auto !important;
-  max-width: 540px;
+.sidebar-btn.active {
+  background: var(--accent-purple);
+  color: #fff;
+}
+
+.sidebar-btn svg {
+  width: 20px;
+  height: 20px;
+  stroke-width: 1.5;
+}
+
+/* Separators inside sidebar */
+.sidebar-divider {
+  width: 36px;
+  height: 1px;
+  background: var(--border-subtle);
+  margin: 6px 0;
+}
+
+/* Slide-out panel */
+.editor-panel {
+  width: 0;
+  min-width: 0;
+  background: var(--panel-bg);
+  border-right: 1px solid var(--border-subtle);
+  overflow: hidden;
+  transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+              min-width 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 30;
+}
+
+.editor-panel.open {
+  width: 288px;
+  min-width: 288px;
+}
+
+.editor-panel-inner {
+  width: 288px;
+  height: 100%;
+  padding: 16px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.panel-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: 0.01em;
+}
+
+.panel-subtitle {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+/* Canvas workspace */
+.editor-workspace {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 1px 1px, rgba(255,255,255,0.03) 1px, transparent 0);
+  background-size: 24px 24px;
+  position: relative;
+  padding: 32px;
+}
+
+/* Canvas wrapper — shadow around the artboard, scaled to fit */
+.canvas-artboard {
+  box-shadow:
+    0 4px 24px rgba(0, 0, 0, 0.4),
+    0 0 0 1px rgba(255, 255, 255, 0.04);
+  border-radius: 4px;
+  overflow: hidden;
+  flex-shrink: 0;
+
+  /* Scale the native 1080×810 canvas to fit viewport.
+     The wrapper keeps its layout size via width/height,
+     and CSS transform shrinks the visual size. */
+  width: 1080px;
+  height: 810px;
+
+  /* Scale down to fit — this works with Fabric.js because
+     the internal canvas coordinates stay at 1080×810 */
+  transform: scale(var(--canvas-scale, 0.6));
+  transform-origin: center center;
+}
+
+/* Fabric.js canvas responsive override */
+.canvas-artboard .canvas-container {
+  display: block !important;
+}
+
+.canvas-artboard .canvas-container canvas {
+  display: block !important;
+}
+
+/* ───────── Shared UI Components ───────── */
+
+.editor-input {
+  width: 100%;
+  background: var(--surface);
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  padding: 8px 12px;
+  color: var(--text-primary);
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.editor-input::placeholder {
+  color: var(--text-dim);
+}
+
+.editor-input:focus {
+  border-color: var(--accent-purple);
+}
+
+.editor-btn-primary {
+  width: 100%;
+  background: var(--accent-purple);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.editor-btn-primary:hover {
+  background: var(--accent-purple-hover);
+}
+
+.editor-btn-primary:disabled {
+  background: var(--surface);
+  color: var(--text-dim);
+  cursor: not-allowed;
+}
+
+.editor-btn-surface {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: var(--surface);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.editor-btn-surface:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+.editor-btn-surface:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Image gallery grid */
+.image-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
+}
+
+.image-grid-item {
+  position: relative;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: all 0.15s ease;
   aspect-ratio: 4 / 3;
 }
 
-.canvas-preview-wrapper .canvas-container canvas {
-  width: 100% !important;
-  height: 100% !important;
+.image-grid-item:hover {
+  border-color: var(--border-strong);
+}
+
+.image-grid-item.selected {
+  border-color: var(--accent-purple);
+  box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.3);
+}
+
+.image-grid-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.image-grid-item .badge {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  background: var(--accent-purple);
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+  padding: 2px 5px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Metadata display */
+.meta-row {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.meta-row:last-child {
+  border-bottom: none;
+}
+
+.meta-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 2px;
+}
+
+.meta-value {
+  font-size: 12px;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Checkbox */
+.editor-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.editor-checkbox input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  accent-color: var(--accent-purple);
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.editor-checkbox label {
+  font-size: 12px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  user-select: none;
+}
+
+/* Navbar action buttons */
+.navbar-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: all 0.15s ease;
+}
+
+.navbar-btn-outline {
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-default);
+}
+
+.navbar-btn-outline:hover {
+  background: var(--surface);
+  color: var(--text-primary);
+}
+
+.navbar-btn-accent {
+  background: var(--accent-purple);
+  color: #fff;
+}
+
+.navbar-btn-accent:hover {
+  background: var(--accent-purple-hover);
+}
+
+/* Loading spinner */
+@keyframes editor-spin {
+  to { transform: rotate(360deg); }
+}
+
+.editor-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--border-default);
+  border-top-color: var(--accent-purple);
+  border-radius: 50%;
+  animation: editor-spin 0.6s linear infinite;
+}
+
+/* Scrollbar styling for panels */
+.editor-panel-inner::-webkit-scrollbar {
+  width: 4px;
+}
+.editor-panel-inner::-webkit-scrollbar-track {
+  background: transparent;
+}
+.editor-panel-inner::-webkit-scrollbar-thumb {
+  background: var(--surface-hover);
+  border-radius: 2px;
+}
+.editor-panel-inner::-webkit-scrollbar-thumb:hover {
+  background: var(--surface-active);
+}
+
+/* ───────── Mobile backdrop ───────── */
+
+.mobile-backdrop {
+  display: none;
+}
+
+/* ───────── Mobile Responsive — Canva Mobile Style ───────── */
+
+@media (max-width: 768px) {
+
+  /* Shell stays column layout */
+  .editor-shell.mobile .editor-body {
+    flex-direction: column;
+    position: relative;
+  }
+
+  /* Navbar — compact */
+  .editor-shell.mobile .editor-navbar {
+    height: 44px;
+    min-height: 44px;
+    padding: 0 12px;
+  }
+
+  /* Sidebar → horizontal bottom toolbar */
+  .editor-shell.mobile .editor-sidebar {
+    order: 3;
+    width: 100%;
+    min-width: unset;
+    height: 56px;
+    min-height: 56px;
+    flex-direction: row;
+    border-right: none;
+    border-top: 1px solid var(--border-subtle);
+    padding: 4px 8px;
+    gap: 0;
+    justify-content: space-around;
+    overflow-x: auto;
+    overflow-y: hidden;
+    z-index: 40;
+  }
+
+  .editor-shell.mobile .sidebar-btn {
+    width: 42px;
+    padding: 6px 4px 4px;
+    font-size: 9px;
+    gap: 2px;
+    flex-shrink: 0;
+  }
+
+  .editor-shell.mobile .sidebar-btn svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .editor-shell.mobile .sidebar-divider {
+    width: 1px;
+    height: 28px;
+    margin: 0 2px;
+  }
+
+  /* Panel → bottom sheet */
+  .editor-shell.mobile .editor-panel {
+    position: fixed;
+    bottom: 56px;
+    left: 0;
+    right: 0;
+    width: 100% !important;
+    min-width: 100% !important;
+    max-height: 0;
+    height: auto;
+    border-right: none;
+    border-top: 1px solid var(--border-subtle);
+    border-radius: 16px 16px 0 0;
+    transition: max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 60;
+    overflow: hidden;
+  }
+
+  .editor-shell.mobile .editor-panel.open {
+    width: 100% !important;
+    min-width: 100% !important;
+    max-height: 60vh;
+  }
+
+  .editor-shell.mobile .editor-panel-inner {
+    width: 100%;
+    max-height: 60vh;
+    padding: 16px;
+  }
+
+  /* Backdrop darkens workspace when sheet is open */
+  .editor-shell.mobile .mobile-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    z-index: 55;
+    animation: fade-in 0.2s ease;
+  }
+
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  /* Workspace */
+  .editor-shell.mobile .editor-workspace {
+    order: 1;
+    flex: 1;
+    padding: 16px;
+    min-height: 0;
+  }
+
+  /* Canvas scaling stays the same via JS ResizeObserver */
 }

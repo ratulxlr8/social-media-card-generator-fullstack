@@ -1,6 +1,26 @@
 import { detectLanguage } from '@/lib/htmlParser';
 import type { LinkPreviewResponse } from '@/types/api';
-import { useEffect, useRef, useState } from 'react';
+import {
+  Calendar,
+  Check,
+  ChevronLeft,
+  ClipboardCopy,
+  Download,
+  Facebook,
+  Image,
+  ImagePlus,
+  Layers,
+  Link,
+  RotateCcw,
+  Share2,
+  Sparkles,
+  Trash2,
+  Twitter,
+  Type,
+  Upload,
+  X,
+} from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 /**
  * Routes external image URLs through our server-side proxy to bypass CORS.
@@ -8,11 +28,19 @@ import { useEffect, useRef, useState } from 'react';
  */
 function getProxiedImageUrl(url: string): string {
   if (!url) return url;
-  // Don't proxy data URIs, blobs, or relative paths
   if (url.startsWith('data:') || url.startsWith('blob:') || url.startsWith('/')) {
     return url;
   }
   return `/api/image-proxy?url=${encodeURIComponent(url)}`;
+}
+
+/** Format today's date based on language */
+function formatDate(lang: 'bn' | 'en' | 'unknown'): string {
+  const now = new Date();
+  if (lang === 'bn') {
+    return now.toLocaleDateString('bn-BD', { year: 'numeric', month: 'long', day: 'numeric' });
+  }
+  return now.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
 // Type declarations for Fabric.js loaded from CDN
@@ -23,9 +51,16 @@ declare global {
 type FabricObject = any;
 type FabricCanvas = any;
 
+type PanelType = 'url' | 'images' | 'text' | 'upload' | 'date' | 'share' | 'overlay' | null;
+
+
 const SocialCardEditor = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fabricCanvasRef = useRef<FabricCanvas | null>(null);
+  const workspaceRef = useRef<HTMLDivElement>(null);
+  const artboardRef = useRef<HTMLDivElement>(null);
+
+  // Existing state
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [imageUrl, setImageUrl] = useState('');
@@ -35,16 +70,76 @@ const SocialCardEditor = () => {
   const [fetchBodyImages, setFetchBodyImages] = useState(false);
   const [bodyImages, setBodyImages] = useState<string[]>([]);
   const [allImages, setAllImages] = useState<string[]>([]);
+  const [activePanel, setActivePanel] = useState<PanelType>('url');
 
-  // Default data for initial load
+  // NEW — Date feature
+  const [showDate, setShowDate] = useState(true);
+  const [dateText, setDateText] = useState(formatDate('en'));
+
+  // NEW — Overlay feature
+  const [overlayUrl, setOverlayUrl] = useState<string | null>(null);
+  const [customOverlays, setCustomOverlays] = useState<string[]>([]);
+
+  // NEW — Share status
+  const [shareStatus, setShareStatus] = useState<string | null>(null);
+
+  // NEW — Mobile detection — lazy init reads UA synchronously, no flash
+  const [isMobile, setIsMobile] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent)
+      || window.innerWidth <= 768;
+  });
+
   const defaultData = {
     title: 'Enter a URL to fetch metadata',
     description: 'Use the form above to fetch metadata from any website',
     imageUrl: 'https://images.unsplash.com/photo-1557683316-973673baf926?w=800&h=600&fit=crop'
   };
 
+  // ─── Dynamic canvas scaling ─────────────────────────────────
+
+  const updateCanvasScale = useCallback(() => {
+    const workspace = workspaceRef.current;
+    const artboard = artboardRef.current;
+    if (!workspace || !artboard) return;
+
+    const padding = isMobile ? 24 : 64;
+    const availW = workspace.clientWidth - padding;
+    const availH = workspace.clientHeight - padding;
+    const scaleX = availW / 1080;
+    const scaleY = availH / 810;
+    const scale = Math.min(scaleX, scaleY, 1);
+
+    artboard.style.setProperty('--canvas-scale', String(scale));
+  }, [isMobile]);
+
   useEffect(() => {
-    // Load Fabric.js from CDN
+    const workspace = workspaceRef.current;
+    if (!workspace) return;
+
+    updateCanvasScale();
+    const observer = new ResizeObserver(updateCanvasScale);
+    observer.observe(workspace);
+    return () => observer.disconnect();
+  }, [updateCanvasScale]);
+
+  useEffect(() => {
+    const timer = setTimeout(updateCanvasScale, 300);
+    return () => clearTimeout(timer);
+  }, [activePanel, updateCanvasScale]);
+
+  // ─── Mobile detection — listen for resize only, initial value set by lazy useState ───
+
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 768px)');
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, []);
+
+  // ─── Fabric.js lifecycle ────────────────────────────────────
+
+  useEffect(() => {
     const script = document.createElement('script');
     script.src = 'https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.0/fabric.min.js';
     script.async = true;
@@ -70,7 +165,7 @@ const SocialCardEditor = () => {
     if (typeof fabric === 'undefined' || !canvasRef.current) return;
 
     const canvasWidth = 1080;
-    const canvasHeight = 810; // 4:3 aspect ratio
+    const canvasHeight = 810;
 
     const canvas = new fabric.Canvas(canvasRef.current, {
       width: canvasWidth,
@@ -80,38 +175,28 @@ const SocialCardEditor = () => {
 
     fabricCanvasRef.current = canvas;
 
-    // Add subtle grid for better UX
     const gridSize = 54;
     for (let i = 0; i <= (canvasWidth / gridSize); i++) {
       canvas.add(new fabric.Line([i * gridSize, 0, i * gridSize, canvasHeight], {
-        stroke: '#34495e',
-        strokeWidth: 1,
-        selectable: false,
-        evented: false,
-        opacity: 0.3
+        stroke: '#34495e', strokeWidth: 1, selectable: false, evented: false, opacity: 0.3
       }));
     }
     for (let i = 0; i <= (canvasHeight / gridSize); i++) {
       canvas.add(new fabric.Line([0, i * gridSize, canvasWidth, i * gridSize], {
-        stroke: '#34495e',
-        strokeWidth: 1,
-        selectable: false,
-        evented: false,
-        opacity: 0.3
+        stroke: '#34495e', strokeWidth: 1, selectable: false, evented: false, opacity: 0.3
       }));
     }
   };
+
+  // ─── Data fetching ──────────────────────────────────────────
 
   const fetchOgData = async (url: string) => {
     if (!url.trim()) return;
 
     setIsLoading(true);
     try {
-      // Build URL with fetchBodyImages parameter
       const params = new URLSearchParams({ url });
-      if (fetchBodyImages) {
-        params.set('fetchBodyImages', '1');
-      }
+      if (fetchBodyImages) params.set('fetchBodyImages', '1');
 
       const response = await fetch(`/api/link-preview?${params.toString()}`);
       const data: LinkPreviewResponse = await response.json();
@@ -126,15 +211,18 @@ const SocialCardEditor = () => {
         setDescription(newDescription);
         setImageUrl(newImageUrl);
 
-        // Handle body images
+        // Auto-set date language
+        const lang = detectLanguage(newTitle);
+        setDateText(formatDate(lang));
+
         const fetchedBodyImages = data.metadata.bodyImages || [];
         setBodyImages(fetchedBodyImages);
-
-        // Create combined image list (main image + body images)
         const combinedImages = [newImageUrl, ...fetchedBodyImages].filter(img => img && img.trim() !== '');
         setAllImages(combinedImages);
 
         renderCard(newTitle, newImageUrl);
+
+        if (combinedImages.length > 1) setActivePanel('images');
       } else {
         console.error('API Error:', data.error);
         setTitle('Error fetching data');
@@ -159,8 +247,6 @@ const SocialCardEditor = () => {
 
   const loadApiData = async () => {
     setIsLoading(true);
-
-    // Load default data initially
     setTimeout(() => {
       setTitle(defaultData.title);
       setDescription(defaultData.description);
@@ -174,201 +260,245 @@ const SocialCardEditor = () => {
 
   const handleUrlSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (urlInput.trim()) {
-      fetchOgData(urlInput.trim());
-    }
+    if (urlInput.trim()) fetchOgData(urlInput.trim());
   };
+
+  // ─── Canvas rendering ───────────────────────────────────────
 
   const renderCard = (titleText: string, imgUrl: string) => {
     if (!fabricCanvasRef.current) return;
-
-    const canvas = fabricCanvasRef.current;
-
-    // Render immediately, font loading will happen automatically
-    renderCardContent(titleText, imgUrl, canvas);
+    renderCardContent(titleText, imgUrl, fabricCanvasRef.current);
   };
 
   const renderCardContent = (titleText: string, imgUrl: string, canvas: FabricCanvas) => {
-    // Detect language for subtitle
     const language = detectLanguage(titleText);
     const subtitleText = language === 'bn' ? 'বিস্তারিত কমেন্টে' : 'See details in comments';
 
-    // Clear previous content (keep grid)
+    // Clear previous selectable objects
     const objects = canvas.getObjects();
     objects.forEach((obj: FabricObject) => {
-      if (obj.selectable !== false) {
-        canvas.remove(obj);
-      }
+      if (obj.selectable !== false) canvas.remove(obj);
     });
 
-    // Card dimensions — full canvas size (1080×810, 4:3)
     const cardWidth = 1080;
     const cardHeight = 810;
 
-    // Add main card background — full size, no padding
-    const cardBg = new fabric.Rect({
-      left: 0,
-      top: 0,
-      width: cardWidth,
-      height: cardHeight,
-      fill: 'white',
-      selectable: false
-    });
-    canvas.add(cardBg);
+    // Background
+    canvas.add(new fabric.Rect({
+      left: 0, top: 0, width: cardWidth, height: cardHeight,
+      fill: 'white', selectable: false
+    }));
 
-    // Add title text at the top with proper centering and wrapping
+    // Title
     const titlePadding = 72;
     const titleWidth = cardWidth - (titlePadding * 2);
-
-    const title = new fabric.Textbox(titleText, {
-      left: cardWidth / 2,
-      top: 54,
-      width: titleWidth,
-      fontSize: 42,
-      fontWeight: 'bold',
-      fill: '#2c3e50',
-      fontFamily: 'Noto Serif Bengali',
-      textAlign: 'center',
-      originX: 'center',
-      originY: 'top',
-      cornerColor: '#3498db',
-      cornerSize: 10,
-      transparentCorners: false,
-      borderColor: '#3498db',
-      lineHeight: 1.4,
-      charSpacing: 0,
-      breakWords: false,
-      lockRotation: false,
-      lockScalingFlip: true,
-      hasControls: true,
-      hasBorders: true
+    const titleTop = 40;
+    const titleObj = new fabric.Textbox(titleText, {
+      left: cardWidth / 2, top: titleTop, width: titleWidth,
+      fontSize: 42, fontWeight: 'bold', fill: '#2c3e50',
+      fontFamily: 'Noto Serif Bengali', textAlign: 'center',
+      originX: 'center', originY: 'top',
+      cornerColor: '#7c3aed', cornerSize: 10,
+      transparentCorners: false, borderColor: '#7c3aed',
+      lineHeight: 1.4, breakWords: false,
+      lockScalingFlip: true, hasControls: true, hasBorders: true
     });
-    canvas.add(title);
+    canvas.add(titleObj);
 
-    // Calculate image area (leaving space for title and subtitle)
-    const imageAreaTop = 130;
-    const imageAreaHeight = cardHeight - 220;
+    // ─── Dynamic image area — measured from title bottom ───
+    const titleActualHeight = titleObj.getBoundingRect().height;
+    const gapAfterTitle = 20;
+    const subtitleReserve = 100; // space for subtitle + date at bottom
+    const imageAreaTop = titleTop + titleActualHeight + gapAfterTitle;
+    const imageAreaBottom = cardHeight - subtitleReserve;
+    const imageAreaHeight = Math.max(imageAreaBottom - imageAreaTop, 100);
     const imageAreaWidth = cardWidth - 108;
     const imageAreaLeft = 54;
 
-    // Add image with proper aspect ratio
+    // Load main OG image — preserve original aspect ratio
     if (imgUrl) {
       fabric.Image.fromURL(getProxiedImageUrl(imgUrl), (img: FabricObject) => {
         const imgWidth = img.width || 800;
         const imgHeight = img.height || 600;
         const imgAspectRatio = imgWidth / imgHeight;
 
+        // Fit within available area while keeping original aspect ratio
         let finalWidth, finalHeight;
-        const targetAspectRatio = 16 / 9;
-
-        if (Math.abs(imgAspectRatio - targetAspectRatio) > 0.5) {
+        if (imgAspectRatio > (imageAreaWidth / imageAreaHeight)) {
+          // Image is wider — constrain by width
           finalWidth = imageAreaWidth;
-          finalHeight = finalWidth / targetAspectRatio;
-
-          if (finalHeight > imageAreaHeight) {
-            finalHeight = imageAreaHeight;
-            finalWidth = finalHeight * targetAspectRatio;
-          }
+          finalHeight = finalWidth / imgAspectRatio;
         } else {
-          if (imgAspectRatio > (imageAreaWidth / imageAreaHeight)) {
-            finalWidth = imageAreaWidth;
-            finalHeight = finalWidth / imgAspectRatio;
-          } else {
-            finalHeight = imageAreaHeight;
-            finalWidth = finalHeight * imgAspectRatio;
-          }
+          // Image is taller — constrain by height
+          finalHeight = imageAreaHeight;
+          finalWidth = finalHeight * imgAspectRatio;
         }
 
-        const scaleX = finalWidth / imgWidth;
-        const scaleY = finalHeight / imgHeight;
+        const sx = finalWidth / imgWidth;
+        const sy = finalHeight / imgHeight;
+        const imgLeft = imageAreaLeft + (imageAreaWidth - finalWidth) / 2;
+        const imgTop = imageAreaTop + (imageAreaHeight - finalHeight) / 2;
 
         img.set({
-          left: imageAreaLeft + (imageAreaWidth - finalWidth) / 2,
-          top: imageAreaTop + (imageAreaHeight - finalHeight) / 2,
-          scaleX: scaleX,
-          scaleY: scaleY,
-          cornerColor: '#3498db',
-          cornerSize: 8,
-          transparentCorners: false,
-          borderColor: '#3498db'
+          left: imgLeft, top: imgTop, scaleX: sx, scaleY: sy,
+          cornerColor: '#7c3aed', cornerSize: 8,
+          transparentCorners: false, borderColor: '#7c3aed'
         });
         canvas.add(img);
+
+        // ─── Overlay (marketing banner) — placed at bottom of image ───
+        if (overlayUrl) {
+          fabric.Image.fromURL(
+            overlayUrl.startsWith('/') ? overlayUrl : getProxiedImageUrl(overlayUrl),
+            (overlayImg: FabricObject) => {
+              const overlayOrigW = overlayImg.width || 1;
+              const overlayOrigH = overlayImg.height || 1;
+              const overlayScale = finalWidth / overlayOrigW;
+              const overlayH = overlayOrigH * overlayScale;
+
+              overlayImg.set({
+                left: imgLeft,
+                top: imgTop + finalHeight - overlayH,
+                scaleX: overlayScale,
+                scaleY: overlayScale,
+                cornerColor: '#7c3aed', cornerSize: 8,
+                transparentCorners: false, borderColor: '#7c3aed',
+                hasControls: true, hasBorders: true
+              });
+              canvas.add(overlayImg);
+              canvas.renderAll();
+            },
+            { crossOrigin: 'anonymous' }
+          );
+        }
+
         canvas.renderAll();
       }, { crossOrigin: 'anonymous' });
     }
 
-    // Add subtitle at the bottom with proper centering
-    const subtitle = new fabric.Textbox(subtitleText, {
-      left: cardWidth / 2,
-      top: cardHeight - 90,
-      width: titleWidth,
-      fontSize: 28,
-      fill: '#7f8c8d',
-      fontFamily: 'Noto Serif Bengali',
-      textAlign: 'center',
-      originX: 'center',
-      originY: 'top',
-      cornerColor: '#3498db',
-      cornerSize: 10,
-      transparentCorners: false,
-      borderColor: '#3498db',
-      lineHeight: 1.4,
-      charSpacing: 0,
-      splitByGrapheme: true,
-      breakWords: false,
-      lockRotation: false,
-      lockScalingFlip: true,
-      hasControls: true,
-      hasBorders: true
-    });
-    canvas.add(subtitle);
+    // Subtitle
+    canvas.add(new fabric.Textbox(subtitleText, {
+      left: cardWidth / 2, top: cardHeight - 90, width: titleWidth,
+      fontSize: 28, fill: '#7f8c8d', fontFamily: 'Noto Serif Bengali',
+      textAlign: 'center', originX: 'center', originY: 'top',
+      cornerColor: '#7c3aed', cornerSize: 10,
+      transparentCorners: false, borderColor: '#7c3aed',
+      lineHeight: 1.4, splitByGrapheme: true, breakWords: false,
+      lockScalingFlip: true, hasControls: true, hasBorders: true
+    }));
+
+    // ─── Date text — bottom right ────────────────────────────
+    if (showDate && dateText) {
+      canvas.add(new fabric.Text(dateText, {
+        left: cardWidth - 72,
+        top: cardHeight - 50,
+        fontSize: 20,
+        fill: '#95a5a6',
+        fontFamily: 'Noto Serif Bengali',
+        originX: 'right',
+        originY: 'top',
+        cornerColor: '#7c3aed', cornerSize: 8,
+        transparentCorners: false, borderColor: '#7c3aed',
+        hasControls: true, hasBorders: true
+      }));
+    }
 
     canvas.renderAll();
   };
 
+  // Re-render when date or overlay changes
+  useEffect(() => {
+    if (title && imageUrl && fabricCanvasRef.current) {
+      renderCard(title, imageUrl);
+    }
+  }, [showDate, dateText, overlayUrl]);
+
+  // ─── Canvas actions ─────────────────────────────────────────
+
   const downloadCard = () => {
     if (!fabricCanvasRef.current) return;
-
-    // Export at native 1080×810 resolution (4:3)
     const dataURL = fabricCanvasRef.current.toDataURL({
-      format: 'png',
-      quality: 1,
-      multiplier: 1,
-      width: 1080,
-      height: 810
+      format: 'png', quality: 1, multiplier: 1, width: 1080, height: 810
     });
-
     const link = document.createElement('a');
     link.download = 'social-card-1080x810.png';
     link.href = dataURL;
     link.click();
   };
 
+  const getCanvasBlob = async (): Promise<Blob | null> => {
+    if (!fabricCanvasRef.current) return null;
+    const dataURL = fabricCanvasRef.current.toDataURL({
+      format: 'png', quality: 1, multiplier: 1, width: 1080, height: 810
+    });
+    const response = await fetch(dataURL);
+    return response.blob();
+  };
+
+  // ─── Share functions ────────────────────────────────────────
+
+  const shareViaWebShare = async () => {
+    const blob = await getCanvasBlob();
+    if (!blob) return;
+
+    const file = new File([blob], 'social-card.png', { type: 'image/png' });
+
+    if (navigator.share && navigator.canShare?.({ files: [file] })) {
+      try {
+        await navigator.share({ files: [file], title: title || 'Social Card' });
+        setShareStatus('Shared successfully!');
+      } catch (e: any) {
+        if (e.name !== 'AbortError') setShareStatus('Share cancelled');
+      }
+    } else {
+      setShareStatus('Web Share not supported — use Copy instead');
+    }
+    setTimeout(() => setShareStatus(null), 3000);
+  };
+
+  const copyToClipboard = async () => {
+    const blob = await getCanvasBlob();
+    if (!blob) return;
+    try {
+      await navigator.clipboard.write([
+        new ClipboardItem({ 'image/png': blob })
+      ]);
+      setShareStatus('Copied to clipboard!');
+    } catch {
+      setShareStatus('Failed to copy — try Download instead');
+    }
+    setTimeout(() => setShareStatus(null), 3000);
+  };
+
+  const shareToFacebook = () => {
+    const url = urlInput || window.location.href;
+    window.open(
+      `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`,
+      '_blank', 'width=600,height=400'
+    );
+  };
+
+  const shareToTwitter = () => {
+    const text = title || 'Check this out!';
+    const url = urlInput || window.location.href;
+    window.open(
+      `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`,
+      '_blank', 'width=600,height=400'
+    );
+  };
+
+  // ─── Element add/delete ─────────────────────────────────────
+
   const addText = () => {
     if (!fabricCanvasRef.current) return;
-
     const text = new fabric.Textbox('New Text', {
-      left: 540,
-      top: 360,
-      width: 648,
-      fontSize: 58,
-      fill: '#2c3e50',
-      fontFamily: 'Arial, sans-serif',
-      textAlign: 'center',
-      originX: 'center',
-      originY: 'top',
-      cornerColor: '#3498db',
-      cornerSize: 10,
-      transparentCorners: false,
-      borderColor: '#3498db',
-      lineHeight: 1.4,
-      charSpacing: 0,
-      splitByGrapheme: true,
-      breakWords: false,
-      lockRotation: false,
-      lockScalingFlip: true,
-      hasControls: true,
-      hasBorders: true
+      left: 540, top: 360, width: 648, fontSize: 58, fill: '#2c3e50',
+      fontFamily: 'Arial, sans-serif', textAlign: 'center',
+      originX: 'center', originY: 'top',
+      cornerColor: '#7c3aed', cornerSize: 10,
+      transparentCorners: false, borderColor: '#7c3aed',
+      lineHeight: 1.4, splitByGrapheme: true, breakWords: false,
+      lockScalingFlip: true, hasControls: true, hasBorders: true
     });
     fabricCanvasRef.current.add(text);
     fabricCanvasRef.current.setActiveObject(text);
@@ -377,7 +507,6 @@ const SocialCardEditor = () => {
 
   const deleteSelected = () => {
     if (!fabricCanvasRef.current) return;
-
     const activeObject = fabricCanvasRef.current.getActiveObject();
     if (activeObject && activeObject.selectable !== false) {
       fabricCanvasRef.current.remove(activeObject);
@@ -385,9 +514,7 @@ const SocialCardEditor = () => {
     }
   };
 
-  const reloadFromApi = () => {
-    loadApiData();
-  };
+  const reloadFromApi = () => { loadApiData(); };
 
   const addImageFromFile = () => {
     const input = document.createElement('input');
@@ -400,32 +527,13 @@ const SocialCardEditor = () => {
         reader.onload = (event) => {
           const imgUrl = event.target?.result as string;
           fabric.Image.fromURL(imgUrl, (img: FabricObject) => {
-            const imgWidth = img.width || 300;
-            const imgHeight = img.height || 300;
-
-            // Scale image to fit nicely on canvas
             const maxSize = 648;
-            let scaleX, scaleY;
-
-            if (imgWidth > imgHeight) {
-              scaleX = maxSize / imgWidth;
-              scaleY = maxSize / imgWidth;
-            } else {
-              scaleX = maxSize / imgHeight;
-              scaleY = maxSize / imgHeight;
-            }
-
+            const s = maxSize / Math.max(img.width || 300, img.height || 300);
             img.set({
-              left: 324,
-              top: 324,
-              scaleX: scaleX,
-              scaleY: scaleY,
-              cornerColor: '#3498db',
-              cornerSize: 8,
-              transparentCorners: false,
-              borderColor: '#3498db'
+              left: 324, top: 324, scaleX: s, scaleY: s,
+              cornerColor: '#7c3aed', cornerSize: 8,
+              transparentCorners: false, borderColor: '#7c3aed'
             });
-
             fabricCanvasRef.current?.add(img);
             fabricCanvasRef.current?.setActiveObject(img);
             fabricCanvasRef.current?.renderAll();
@@ -441,32 +549,13 @@ const SocialCardEditor = () => {
     const url = prompt('Enter image URL:');
     if (url && fabricCanvasRef.current) {
       fabric.Image.fromURL(getProxiedImageUrl(url), (img: FabricObject) => {
-        const imgWidth = img.width || 300;
-        const imgHeight = img.height || 300;
-
-        // Scale image to fit nicely on canvas
         const maxSize = 648;
-        let scaleX, scaleY;
-
-        if (imgWidth > imgHeight) {
-          scaleX = maxSize / imgWidth;
-          scaleY = maxSize / imgWidth;
-        } else {
-          scaleX = maxSize / imgHeight;
-          scaleY = maxSize / imgHeight;
-        }
-
+        const s = maxSize / Math.max(img.width || 300, img.height || 300);
         img.set({
-          left: 324,
-          top: 324,
-          scaleX: scaleX,
-          scaleY: scaleY,
-          cornerColor: '#3498db',
-          cornerSize: 8,
-          transparentCorners: false,
-          borderColor: '#3498db'
+          left: 324, top: 324, scaleX: s, scaleY: s,
+          cornerColor: '#7c3aed', cornerSize: 8,
+          transparentCorners: false, borderColor: '#7c3aed'
         });
-
         fabricCanvasRef.current?.add(img);
         fabricCanvasRef.current?.setActiveObject(img);
         fabricCanvasRef.current?.renderAll();
@@ -479,213 +568,336 @@ const SocialCardEditor = () => {
     renderCard(title, selectedImageUrl);
   };
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 p-4 md:p-6">
-      {/* Subtle background glow */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/4 -left-32 w-80 h-80 bg-purple-500/15 rounded-full blur-3xl"></div>
-        <div className="absolute bottom-1/4 -right-32 w-80 h-80 bg-blue-500/15 rounded-full blur-3xl"></div>
+  const togglePanel = (panel: PanelType) => {
+    setActivePanel(prev => prev === panel ? null : panel);
+  };
+
+  // Overlay upload
+  const uploadOverlay = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.onchange = (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const dataUrl = event.target?.result as string;
+          setCustomOverlays(prev => [...prev, dataUrl]);
+          setOverlayUrl(dataUrl);
+        };
+        reader.readAsDataURL(file);
+      }
+    };
+    input.click();
+  };
+
+  // ─── Panel header helper ────────────────────────────────────
+
+  const PanelHeader = ({ title: panelTitle }: { title: string }) => (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <span className="panel-title">{panelTitle}</span>
+      <button
+        onClick={() => setActivePanel(null)}
+        style={{
+          background: 'none', border: 'none', color: 'var(--text-muted)',
+          cursor: 'pointer', padding: '4px', display: 'flex'
+        }}
+      >
+        {isMobile ? <X size={16} /> : <ChevronLeft size={16} />}
+      </button>
+    </div>
+  );
+
+  // ─── Panel renderers ────────────────────────────────────────
+
+  const renderUrlPanel = () => (
+    <div className="editor-panel-inner">
+      <PanelHeader title="Fetch from URL" />
+      <p className="panel-subtitle">Paste a link to auto-extract title, image, and description.</p>
+
+      <form onSubmit={handleUrlSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        <input type="url" value={urlInput} onChange={(e) => setUrlInput(e.target.value)}
+          placeholder="https://example.com/article" className="editor-input" />
+        <div className="editor-checkbox">
+          <input type="checkbox" id="fetchBodyImages" checked={fetchBodyImages}
+            onChange={(e) => setFetchBodyImages(e.target.checked)} />
+          <label htmlFor="fetchBodyImages">Extract body images</label>
+        </div>
+        <button type="submit" disabled={isLoading || !urlInput.trim()} className="editor-btn-primary">
+          {isLoading ? (
+            <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+              <span className="editor-spinner" /> Fetching…
+            </span>
+          ) : 'Fetch Preview'}
+        </button>
+      </form>
+
+      {(title || description) && (
+        <div style={{ marginTop: '4px' }}>
+          <div className="panel-title" style={{ marginBottom: '8px', fontSize: '12px' }}>Metadata</div>
+          {title && (<div className="meta-row"><div className="meta-label">Title</div><div className="meta-value">{title}</div></div>)}
+          {description && (<div className="meta-row"><div className="meta-label">Description</div><div className="meta-value" style={{ whiteSpace: 'normal', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' }}>{description}</div></div>)}
+          {bodyImages.length > 0 && (<div className="meta-row"><div className="meta-label">Body Images</div><div className="meta-value">{bodyImages.length} found</div></div>)}
+        </div>
+      )}
+    </div>
+  );
+
+  const renderImagesPanel = () => (
+    <div className="editor-panel-inner">
+      <PanelHeader title={`Images (${allImages.length})`} />
+      <p className="panel-subtitle">Click an image to use it on your card.</p>
+      {allImages.length > 0 ? (
+        <div className="image-grid">
+          {allImages.map((imgUrl, index) => (
+            <div key={index} className={`image-grid-item ${imgUrl === imageUrl ? 'selected' : ''}`}
+              onClick={() => handleImageSelect(imgUrl)}>
+              <img src={getProxiedImageUrl(imgUrl)} alt={`Image ${index + 1}`}
+                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+              {index === 0 && <span className="badge">OG</span>}
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div style={{ padding: '32px 16px', textAlign: 'center', color: 'var(--text-dim)', fontSize: '12px' }}>
+          <Image size={32} style={{ margin: '0 auto 8px', opacity: 0.3 }} /> No images yet. Fetch a URL first.
+        </div>
+      )}
+    </div>
+  );
+
+  const renderTextPanel = () => (
+    <div className="editor-panel-inner">
+      <PanelHeader title="Text" />
+      <p className="panel-subtitle">Add text elements to your canvas.</p>
+      <button onClick={addText} className="editor-btn-surface" style={{ width: '100%' }}>
+        <Type size={14} /> Add a text box
+      </button>
+      <div style={{ padding: '12px', background: 'var(--surface)', borderRadius: '8px', fontSize: '11px', color: 'var(--text-dim)', lineHeight: '1.6' }}>
+        <strong style={{ color: 'var(--text-secondary)' }}>Tips</strong>
+        <ul style={{ margin: '4px 0 0 16px', padding: 0 }}>
+          <li>Double-click text to edit</li>
+          <li>Drag to reposition</li>
+          <li>Use corner handles to resize</li>
+          <li>Rotate via the top handle</li>
+        </ul>
+      </div>
+    </div>
+  );
+
+  const renderUploadPanel = () => (
+    <div className="editor-panel-inner">
+      <PanelHeader title="Upload" />
+      <p className="panel-subtitle">Add images from your device or a URL.</p>
+      <button onClick={addImageFromFile} className="editor-btn-surface" style={{ width: '100%' }}>
+        <Upload size={14} /> Upload from device
+      </button>
+      <button onClick={addImageFromUrl} className="editor-btn-surface" style={{ width: '100%' }}>
+        <ImagePlus size={14} /> Add from URL
+      </button>
+    </div>
+  );
+
+  const renderDatePanel = () => (
+    <div className="editor-panel-inner">
+      <PanelHeader title="Date" />
+      <p className="panel-subtitle">Add a date stamp to the bottom-right of your card.</p>
+
+      <div className="editor-checkbox">
+        <input type="checkbox" id="showDate" checked={showDate}
+          onChange={(e) => setShowDate(e.target.checked)} />
+        <label htmlFor="showDate">Show date on card</label>
       </div>
 
-      <div className="max-w-7xl mx-auto relative">
-        {/* Compact Header */}
-        <div className="mb-4 flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl md:text-3xl font-bold text-white">
-              Social Card Editor
-            </h1>
-            <p className="text-sm text-white/50">Create 1080×810 social media cards</p>
+      {showDate && (
+        <>
+          <input type="text" value={dateText} onChange={(e) => setDateText(e.target.value)}
+            className="editor-input" placeholder="Enter date text" />
+          <div style={{ display: 'flex', gap: '6px' }}>
+            <button onClick={() => setDateText(formatDate('en'))} className="editor-btn-surface" style={{ flex: 1, fontSize: '11px' }}>
+              English
+            </button>
+            <button onClick={() => setDateText(formatDate('bn'))} className="editor-btn-surface" style={{ flex: 1, fontSize: '11px' }}>
+              বাংলা
+            </button>
           </div>
-          <button
-            onClick={downloadCard}
-            className="bg-green-500/20 hover:bg-green-500/30 text-green-300 text-sm font-medium py-2 px-4 rounded-lg border border-green-500/20 transition-colors flex items-center gap-1.5"
-          >
-            ⬇ Download
+          <button onClick={() => setDateText(formatDate(detectLanguage(title)))} className="editor-btn-surface" style={{ width: '100%', fontSize: '11px' }}>
+            Auto-detect from title
+          </button>
+        </>
+      )}
+    </div>
+  );
+
+  const renderSharePanel = () => (
+    <div className="editor-panel-inner">
+      <PanelHeader title="Share" />
+      <p className="panel-subtitle">Share your card to social media or clipboard.</p>
+
+      {shareStatus && (
+        <div style={{
+          padding: '8px 12px', borderRadius: '8px', fontSize: '12px', fontWeight: 500,
+          background: shareStatus.includes('success') || shareStatus.includes('Copied') ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)',
+          color: shareStatus.includes('success') || shareStatus.includes('Copied') ? '#22c55e' : '#ef4444',
+          display: 'flex', alignItems: 'center', gap: '6px'
+        }}>
+          <Check size={14} /> {shareStatus}
+        </div>
+      )}
+
+      <button onClick={shareViaWebShare} className="editor-btn-primary" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+        <Share2 size={14} /> Share (Native)
+      </button>
+
+      <button onClick={copyToClipboard} className="editor-btn-surface" style={{ width: '100%' }}>
+        <ClipboardCopy size={14} /> Copy to Clipboard
+      </button>
+
+      <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>Direct links</div>
+
+      <div style={{ display: 'flex', gap: '6px' }}>
+        <button onClick={shareToFacebook} className="editor-btn-surface" style={{ flex: 1 }}>
+          <Facebook size={14} /> Facebook
+        </button>
+        <button onClick={shareToTwitter} className="editor-btn-surface" style={{ flex: 1 }}>
+          <Twitter size={14} /> X / Twitter
+        </button>
+      </div>
+
+      <button onClick={downloadCard} className="editor-btn-surface" style={{ width: '100%' }}>
+        <Download size={14} /> Download PNG
+      </button>
+    </div>
+  );
+
+  const renderOverlayPanel = () => (
+    <div className="editor-panel-inner">
+      <PanelHeader title="Overlay" />
+      <p className="panel-subtitle">Add a marketing banner at the bottom of the image.</p>
+
+      {/* Active overlay indicator */}
+      {overlayUrl && (
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '8px', background: 'rgba(124,58,237,0.1)', borderRadius: '8px',
+          border: '1px solid rgba(124,58,237,0.3)', fontSize: '11px', color: 'var(--text-secondary)'
+        }}>
+          <span>Overlay active</span>
+          <button onClick={() => setOverlayUrl(null)} style={{
+            background: 'none', border: 'none', color: 'var(--accent-red)',
+            cursor: 'pointer', padding: '2px', display: 'flex', fontSize: '11px'
+          }}>
+            <X size={14} /> Remove
           </button>
         </div>
+      )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-          {/* Canvas Area */}
-          <div className="lg:col-span-8">
-            <div className="backdrop-blur-xl bg-white/5 rounded-2xl p-3 md:p-4 border border-white/10 shadow-2xl shadow-purple-500/5">
-              <div className="flex justify-center canvas-preview-wrapper">
-                <canvas
-                  ref={canvasRef}
-                  width={1080}
-                  height={810}
-                  className="rounded-xl"
-                />
-              </div>
-            </div>
+      <div className="image-grid">
+        {customOverlays.map((src, i) => (
+          <div key={`custom-${i}`}
+            className={`image-grid-item ${overlayUrl === src ? 'selected' : ''}`}
+            onClick={() => setOverlayUrl(overlayUrl === src ? null : src)}
+            style={{ aspectRatio: 'auto' }}
+          >
+            <img src={src} alt={`Overlay ${i + 1}`}
+              style={{ height: '40px', width: '100%', objectFit: 'contain', background: '#fff' }} />
           </div>
+        ))}
+      </div>
 
-          {/* Compact Sidebar */}
-          <div className="lg:col-span-4 space-y-3">
-            {/* URL Input */}
-            <div className="backdrop-blur-xl bg-white/5 rounded-xl p-4 border border-white/10">
-              <h2 className="text-sm font-semibold text-white/80 uppercase tracking-wider mb-3">Fetch Preview</h2>
-              <form onSubmit={handleUrlSubmit} className="space-y-2">
-                <input
-                  type="url"
-                  value={urlInput}
-                  onChange={(e) => setUrlInput(e.target.value)}
-                  placeholder="Paste a URL..."
-                  className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white placeholder-white/30 text-sm focus:border-purple-500/50 focus:outline-none transition-colors"
-                />
+      <button onClick={uploadOverlay} className="editor-btn-surface" style={{ width: '100%' }}>
+        <Upload size={14} /> Upload custom overlay
+      </button>
+    </div>
+  );
 
-                <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    id="fetchBodyImages"
-                    checked={fetchBodyImages}
-                    onChange={(e) => setFetchBodyImages(e.target.checked)}
-                    className="w-3.5 h-3.5 text-purple-600 bg-white/10 border-white/20 rounded focus:ring-purple-500 focus:ring-1"
-                  />
-                  <label htmlFor="fetchBodyImages" className="text-xs text-white/60">
-                    Extract body images
-                  </label>
-                </div>
+  // ─── Sidebar items definition ───────────────────────────────
 
-                <button
-                  type="submit"
-                  disabled={isLoading || !urlInput.trim()}
-                  className="w-full bg-purple-500 hover:bg-purple-600 disabled:bg-white/10 disabled:text-white/30 text-white text-sm font-medium py-2 px-4 rounded-lg transition-colors"
-                >
-                  {isLoading ? 'Loading...' : 'Fetch'}
-                </button>
-              </form>
-            </div>
+  const sidebarItems: { panel: PanelType; icon: React.ReactNode; label: string; color?: string }[] = [
+    { panel: 'url', icon: <Link size={20} />, label: 'URL' },
+    { panel: 'images', icon: <Image size={20} />, label: 'Images' },
+    { panel: 'text', icon: <Type size={20} />, label: 'Text' },
+    { panel: 'upload', icon: <Upload size={20} />, label: 'Upload' },
+    { panel: 'date', icon: <Calendar size={20} />, label: 'Date' },
+    { panel: 'overlay', icon: <Layers size={20} />, label: 'Overlay' },
+    { panel: 'share', icon: <Share2 size={20} />, label: 'Share' },
+  ];
 
-            {/* Tools — compact 3-col grid */}
-            <div className="backdrop-blur-xl bg-white/5 rounded-xl p-4 border border-white/10">
-              <h2 className="text-sm font-semibold text-white/80 uppercase tracking-wider mb-3">Tools</h2>
-              <div className="grid grid-cols-3 gap-1.5">
-                <button
-                  onClick={addText}
-                  className="bg-white/5 hover:bg-white/10 text-white/80 text-xs font-medium py-2 px-2 rounded-lg border border-white/10 transition-colors"
-                >
-                  + Text
-                </button>
-                <button
-                  onClick={addImageFromFile}
-                  className="bg-white/5 hover:bg-white/10 text-white/80 text-xs font-medium py-2 px-2 rounded-lg border border-white/10 transition-colors"
-                >
-                  Upload
-                </button>
-                <button
-                  onClick={addImageFromUrl}
-                  className="bg-white/5 hover:bg-white/10 text-white/80 text-xs font-medium py-2 px-2 rounded-lg border border-white/10 transition-colors"
-                >
-                  URL
-                </button>
-                <button
-                  onClick={deleteSelected}
-                  className="bg-red-500/15 hover:bg-red-500/25 text-red-300 text-xs font-medium py-2 px-2 rounded-lg border border-red-500/15 transition-colors"
-                >
-                  Delete
-                </button>
-                <button
-                  onClick={reloadFromApi}
-                  disabled={isLoading}
-                  className="bg-white/5 hover:bg-white/10 disabled:opacity-50 text-white/80 text-xs font-medium py-2 px-2 rounded-lg border border-white/10 transition-colors"
-                >
-                  Reset
-                </button>
-                <button
-                  onClick={downloadCard}
-                  className="bg-green-500/15 hover:bg-green-500/25 text-green-300 text-xs font-medium py-2 px-2 rounded-lg border border-green-500/15 transition-colors"
-                >
-                  Save
-                </button>
-              </div>
-            </div>
+  // ─── Render ─────────────────────────────────────────────────
 
-            {/* Body Images Section */}
-            {(allImages.length > 0 || (fetchBodyImages && ogData)) && (
-              <div className="backdrop-blur-xl bg-white/5 rounded-xl p-4 border border-white/10">
-                <h2 className="text-sm font-semibold text-white/80 uppercase tracking-wider mb-3">
-                  Images ({allImages.length})
-                </h2>
-
-                {allImages.length > 0 ? (
-                  <>
-                    <div className="grid grid-cols-3 gap-1.5 max-h-48 overflow-y-auto">
-                      {allImages.map((imgUrl, index) => (
-                        <div
-                          key={index}
-                          className={`relative group cursor-pointer rounded-lg overflow-hidden border-2 transition-all ${imgUrl === imageUrl
-                            ? 'border-purple-500 ring-1 ring-purple-500/50'
-                            : 'border-white/15 hover:border-white/30'
-                            }`}
-                          onClick={() => handleImageSelect(imgUrl)}
-                        >
-                          <img
-                            src={getProxiedImageUrl(imgUrl)}
-                            alt={`Image ${index + 1}`}
-                            className="w-full h-12 object-cover"
-                            onError={(e) => {
-                              (e.target as HTMLImageElement).style.display = 'none';
-                            }}
-                          />
-                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
-                            {imgUrl === imageUrl && (
-                              <div className="w-3 h-3 bg-purple-500 rounded-full border-2 border-white"></div>
-                            )}
-                          </div>
-                          {index === 0 && (
-                            <div className="absolute top-0.5 left-0.5 bg-purple-500 text-white text-[10px] px-1 py-0.5 rounded">
-                              OG
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                    <p className="text-[10px] text-white/40 mt-1.5">
-                      Click to swap image
-                    </p>
-                  </>
-                ) : fetchBodyImages && ogData && (
-                  <p className="text-xs text-white/50 text-center py-2">
-                    No body images found
-                  </p>
-                )}
-              </div>
-            )}
-
-            {/* Metadata Display — compact */}
-            {(title || description) && (
-              <div className="backdrop-blur-xl bg-white/5 rounded-xl p-4 border border-white/10">
-                <h2 className="text-sm font-semibold text-white/80 uppercase tracking-wider mb-2">Metadata</h2>
-                <div className="space-y-1.5">
-                  {title && (
-                    <div>
-                      <span className="text-[10px] font-medium text-white/40 uppercase">Title</span>
-                      <p className="text-xs text-white/80 truncate">{title}</p>
-                    </div>
-                  )}
-                  {description && (
-                    <div>
-                      <span className="text-[10px] font-medium text-white/40 uppercase">Desc</span>
-                      <p className="text-xs text-white/60 line-clamp-2">{description}</p>
-                    </div>
-                  )}
-                  {bodyImages.length > 0 && (
-                    <p className="text-[10px] text-white/50">
-                      {bodyImages.length} body images extracted
-                    </p>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Tips — minimal */}
-            <div className="backdrop-blur-xl bg-white/5 rounded-xl p-3 border border-white/10">
-              <p className="text-[10px] text-white/40 leading-relaxed">
-                <span className="text-white/60 font-medium">Tips:</span> Drag to move · Double-click to edit · Corners to resize · Rotate via handle
-              </p>
-            </div>
-          </div>
+  return (
+    <div className={`editor-shell ${isMobile ? 'mobile' : ''}`}>
+      {/* ── Navbar ── */}
+      <header className="editor-navbar">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <Sparkles size={18} style={{ color: 'var(--accent-purple)' }} />
+          <span style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', letterSpacing: '-0.01em' }}>
+            Card Editor
+          </span>
+          {!isMobile && (
+            <span style={{ fontSize: '11px', color: 'var(--text-dim)', borderLeft: '1px solid var(--border-subtle)', paddingLeft: '12px', marginLeft: '4px' }}>
+              1080 × 810
+            </span>
+          )}
         </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <button onClick={reloadFromApi} className="navbar-btn navbar-btn-outline" disabled={isLoading}>
+            <RotateCcw size={13} />
+            {!isMobile && 'Reset'}
+          </button>
+          <button onClick={downloadCard} className="navbar-btn navbar-btn-accent">
+            <Download size={13} />
+            {!isMobile && 'Download'}
+          </button>
+        </div>
+      </header>
+
+      {/* ── Body ── */}
+      <div className="editor-body">
+        {/* ── Icon sidebar (desktop: left, mobile: bottom) ── */}
+        <nav className="editor-sidebar">
+          {sidebarItems.map((item) => (
+            <button key={item.label}
+              className={`sidebar-btn ${activePanel === item.panel ? 'active' : ''}`}
+              onClick={() => togglePanel(item.panel!)}
+            >
+              {item.icon}
+              {!isMobile && item.label}
+            </button>
+          ))}
+
+          {!isMobile && <div className="sidebar-divider" />}
+
+          <button className="sidebar-btn" onClick={deleteSelected}
+            style={{ color: 'var(--accent-red)' }}>
+            <Trash2 size={20} />
+            {!isMobile && 'Delete'}
+          </button>
+        </nav>
+
+        {/* ── Slide-out panel (desktop: side, mobile: bottom sheet) ── */}
+        <aside className={`editor-panel ${activePanel ? 'open' : ''}`}>
+          {activePanel === 'url' && renderUrlPanel()}
+          {activePanel === 'images' && renderImagesPanel()}
+          {activePanel === 'text' && renderTextPanel()}
+          {activePanel === 'upload' && renderUploadPanel()}
+          {activePanel === 'date' && renderDatePanel()}
+          {activePanel === 'share' && renderSharePanel()}
+          {activePanel === 'overlay' && renderOverlayPanel()}
+        </aside>
+
+        {/* ── Mobile panel backdrop ── */}
+        {isMobile && activePanel && (
+          <div className="mobile-backdrop" onClick={() => setActivePanel(null)} />
+        )}
+
+        {/* ── Canvas workspace ── */}
+        <main className="editor-workspace" ref={workspaceRef}>
+          <div className="canvas-artboard" ref={artboardRef}>
+            <canvas ref={canvasRef} width={1080} height={810} />
+          </div>
+        </main>
       </div>
     </div>
   );
