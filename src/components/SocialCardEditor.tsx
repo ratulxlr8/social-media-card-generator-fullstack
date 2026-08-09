@@ -51,6 +51,25 @@ declare global {
 type FabricObject = any;
 type FabricCanvas = any;
 
+/**
+ * Fabric.js's built-in `graphemeSplit` only merges UTF-16 surrogate pairs
+ * (for emoji outside the BMP) — every Bengali consonant, vowel sign, and
+ * conjunct-forming virama is treated as its own separate "character" for
+ * line-wrapping, click-to-cursor, and insert/delete. Every one of Fabric's
+ * internal call sites looks this function up dynamically off `fabric.util
+ * .string`, so replacing it once (before any Textbox is created) fixes
+ * cursor placement everywhere text is measured. `Intl.Segmenter`'s grapheme
+ * granularity groups a base character with its attached combining marks
+ * (e.g. matras), matching what actually gets shaped/painted as one unit.
+ */
+function patchFabricGraphemeSplit() {
+  if (typeof fabric === 'undefined' || !fabric.util?.string?.graphemeSplit) return;
+  if (typeof Intl === 'undefined' || !Intl.Segmenter) return;
+  const segmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
+  fabric.util.string.graphemeSplit = (text: string) =>
+    Array.from(segmenter.segment(text), (s) => s.segment);
+}
+
 type PanelType = 'url' | 'images' | 'text' | 'upload' | 'date' | 'share' | 'overlay' | null;
 
 
@@ -100,8 +119,8 @@ const SocialCardEditor = () => {
 
   const updateCanvasScale = useCallback(() => {
     const workspace = workspaceRef.current;
-    const artboard = artboardRef.current;
-    if (!workspace || !artboard) return;
+    const canvas = fabricCanvasRef.current;
+    if (!workspace || !canvas) return;
 
     const padding = isMobile ? 24 : 64;
     const availW = workspace.clientWidth - padding;
@@ -110,7 +129,12 @@ const SocialCardEditor = () => {
     const scaleY = availH / 810;
     const scale = Math.min(scaleX, scaleY, 1);
 
-    artboard.style.setProperty('--canvas-scale', String(scale));
+    // Resize the actual Fabric canvas (via its native zoom/dimensions APIs)
+    // instead of CSS-transforming it. A CSS transform leaves Fabric's pointer
+    // math (used for clicks, drags, and text-cursor placement) unaware of the
+    // visual scale, which is what made the text cursor land in the wrong spot.
+    canvas.setZoom(scale);
+    canvas.setDimensions({ width: 1080 * scale, height: 810 * scale });
   }, [isMobile]);
 
   useEffect(() => {
@@ -144,8 +168,10 @@ const SocialCardEditor = () => {
     script.src = 'https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.0/fabric.min.js';
     script.async = true;
     script.onload = () => {
+      patchFabricGraphemeSplit();
       setTimeout(() => {
         initializeCanvas();
+        updateCanvasScale();
         loadApiData();
       }, 100);
     };

@@ -274,7 +274,13 @@
   padding: 32px;
 }
 
-/* Canvas wrapper — shadow around the artboard, scaled to fit */
+/* Canvas wrapper — shadow around the artboard, sized to fit its content.
+   The Fabric canvas itself is resized to the fitted pixel size via
+   canvas.setZoom()/setDimensions() (see updateCanvasScale in
+   SocialCardEditor.tsx) rather than a CSS transform, so Fabric's own
+   pointer math (clicks, drags, text-cursor placement) stays accurate at
+   any scale — a CSS transform would visually scale the canvas without
+   Fabric knowing, throwing off hit-testing. */
 .canvas-artboard {
   box-shadow:
     0 4px 24px rgba(0, 0, 0, 0.4),
@@ -282,17 +288,7 @@
   border-radius: 4px;
   overflow: hidden;
   flex-shrink: 0;
-
-  /* Scale the native 1080×810 canvas to fit viewport.
-     The wrapper keeps its layout size via width/height,
-     and CSS transform shrinks the visual size. */
-  width: 1080px;
-  height: 810px;
-
-  /* Scale down to fit — this works with Fabric.js because
-     the internal canvas coordinates stay at 1080×810 */
-  transform: scale(var(--canvas-scale, 0.6));
-  transform-origin: center center;
+  line-height: 0;
 }
 
 /* Fabric.js canvas responsive override */
